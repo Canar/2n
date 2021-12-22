@@ -15,11 +15,13 @@
 
 #define PKG        "2n"
 #define VERSION    "0.1"
+#define PKGVER     PKG " ✝ v" VERSION
 #define RATE       "44100"
 #define CHAN       "2"
 #define _FMT	   "32le"
 #define FMT        "f" _FMT
 #define FRMT        "float" _FMT
+#define STRM	   CHAN "ch " FRMT " @ " RATE "Hz"
 #define CFGDIR     "/.local/share/" PKG "/"
 #define PLAYLISTFN "playlist"
 #define STATEFN    "state"
@@ -222,7 +224,7 @@ int main(int argc, char *argv[]){
 		dup2(pipefd[0],0);
 		close(pipefd[0]);
 		/* execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0); */
-		execlp("pacat","-p","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw",(char*)0);
+		execlp("pacat","-p","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
 	}
 
 	char ss_buf[22]={'0',0,'0',0};
@@ -310,7 +312,7 @@ int main(int argc, char *argv[]){
 		kill(output_pid,SIGINT);
 	if(input_pid>0) 
 		kill(input_pid,SIGINT);
-	printf("\e[2K\r    ]  " PKG " ✝ v" VERSION "  [    \n");
+	printf("\e[2K\r    ]  " PKGVER "  [    \n");
 	validate(tcsetattr(STDIN,TCSAFLUSH,&termios_state),TERMIOS_WRITE);
 	return(0);
 }
