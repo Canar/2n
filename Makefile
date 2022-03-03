@@ -22,7 +22,7 @@ waveOut-ls.exe: waveOut-ls.c
 	$(MINGW_CPP) -o waveOut-ls.exe waveOut-ls.c -lwinmm
 
 waveOut-write.exe: waveOut-write.c
-	$(MINGW_CPP) -o waveOut-write.exe waveOut-write.c -lwinmm
+	$(MINGW_CPP) -o waveOut-write.exe waveOut-write.c -Wall -lwinmm
 
 install:
 	cp $(PROG) $(PREFIX)/$(PROG)
