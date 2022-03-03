@@ -18,6 +18,12 @@ waveout.exe: waveout/$(WAVEOUT_CC)
 
 waveout: waveout.exe
 
+waveOut-ls.exe: waveOut-ls.c
+	$(MINGW_CPP) -o waveOut-ls.exe waveOut-ls.c -lwinmm
+
+waveOut-write.exe: waveOut-write.c
+	$(MINGW_CPP) -o waveOut-write.exe waveOut-write.c -lwinmm
+
 install:
 	cp $(PROG) $(PREFIX)/$(PROG)
 
