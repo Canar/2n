@@ -3,6 +3,7 @@
 // https://hero.handmade.network/forums/code-discussion/t/920-directsound_and_c
 // https://github.com/id-Software/Quake/blob/master/WinQuake/snd_win.c#L340
 // DirectSound sucks, requires COM/OOP interfacing
+// https://www.codeproject.com/Articles/13601/COM-in-plain-C
 
 
 #include <io.h>
