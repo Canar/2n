@@ -1,19 +1,23 @@
-//to test: ffmpeg -i audio.file -f s16le test.raw ; waveOut-write.exe test.raw
+//to test: ffmpeg -i audio.file -f s16le - | waveOut-write.exe
+
+#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <mmsystem.h>
 #include <stdio.h>
 
-int main(int argc,char** argv){
+#define BLK_N 8
+#define BLK_LEN 16384
+
+int main(){
 	char *buffer;
 	long fileSize;
 
-	FILE *fp = fopen(argv[1], "rb");
-	fseek(fp, 0, SEEK_END);
-	fileSize = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	fseek(stdin, 0, SEEK_END);
+	fileSize = ftell(stdin);
+	fseek(stdin, 0, SEEK_SET);
 	buffer = (char*) calloc(1, fileSize+1);
-	fread(buffer, 1, fileSize, fp);
-	fclose(fp);
+	fread(buffer, 1, fileSize, stdin);
 
 	WAVEFORMATEX wf;
 	WAVEHDR wh;
@@ -36,8 +40,7 @@ int main(int argc,char** argv){
 	waveOutPrepareHeader(hWaveOut,&wh,sizeof(wh));
 	waveOutWrite(hWaveOut,&wh,sizeof(wh));
 
-	do {}
-	while (!(wh.dwFlags & WHDR_DONE));
+	do {} while (!(wh.dwFlags & WHDR_DONE));
 
 	waveOutUnprepareHeader(hWaveOut,&wh,sizeof(wh));
 	waveOutClose(hWaveOut);
