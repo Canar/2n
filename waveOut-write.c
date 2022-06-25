@@ -1,6 +1,9 @@
 //to test: ffmpeg -i audio.file -f s16le - | waveOut-write.exe
 
+
 #define WIN32_LEAN_AND_MEAN
+
+#include "config.h"
 
 #include <windows.h>
 #include <mmsystem.h>
@@ -18,8 +21,8 @@ int main(){
 
 	WAVEFORMATEX wf;
 	wf.wFormatTag = WAVE_FORMAT_PCM;
-	wf.nBlockAlign = ( wf.wBitsPerSample = 16 ) >> 3 * ( wf.nChannels = 2);
-	wf.nAvgBytesPerSec = ( wf.nSamplesPerSec = 44100 ) * wf.nBlockAlign;
+	wf.nBlockAlign = ( wf.wBitsPerSample = BPS ) >> 3 * ( wf.nChannels = CHAN_ );
+	wf.nAvgBytesPerSec = ( wf.nSamplesPerSec = RATE_ ) * wf.nBlockAlign;
 	wf.cbSize = 0;
 
 	WAVEHDR wh[BLK_N];
@@ -30,7 +33,7 @@ int main(){
 		wh[i].dwLoops = 0;
 	}
 
-	_setmode(_fileno(stdin), _O_BINARY);
+	_setmode(_fileno(stdin), _O_BINARY); // required
 	HWAVEOUT hWaveOut;
 	waveOutOpen(&hWaveOut,WAVE_MAPPER,&wf,0,0,CALLBACK_NULL);
 	int ef;

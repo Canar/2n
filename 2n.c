@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,20 +14,6 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
-
-#define PKG        "2n"
-#define VERSION    "0.1"
-#define PKGVER     PKG " ✝ v" VERSION
-#define RATE       "44100"
-#define CHAN       "2"
-#define _FMT	   "32le"
-#define FMT        "f" _FMT
-#define FRMT        "float" _FMT
-#define STRM	   CHAN "ch " FRMT " @ " RATE "Hz"
-#define CFGDIR     "/.local/share/" PKG "/"
-#define PLAYLISTFN "playlist"
-#define STATEFN    "state"
-#define STDIN      0
 
 enum ERROR {
 	NONE,
