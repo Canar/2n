@@ -228,7 +228,8 @@ int main(int argc, char *argv[]){
 				goto quit;
 			if(pos<0)
 				pos=0;
-			printf("\e[2K\r%s\n",&pl[pos][plen]);
+			if(plc>1)
+				printf("\e[2K\r%s\n",&pl[pos][plen]);
 			clock_gettime(CLOCK_MONOTONIC,&start);
 			char* ss=ss_buf;
 			if(state.off>0){
