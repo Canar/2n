@@ -1,1 +1,1 @@
-config.mingw.h
+config.linux.h
