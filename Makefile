@@ -4,7 +4,7 @@ MINGW_CPP=x86_64-w64-mingw32-gcc
 WAVEOUT_CC=waveout.0.c
 PREFIX=/usr/local/bin
 
-$(PROG):	2n.c Makefile
+$(PROG):	2n.c Makefile config.h
 	$(CC) $(CFLAGS) -o $(PROG) 2n.c
 
 tcc:

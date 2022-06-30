@@ -109,6 +109,12 @@ int main(int argc, char *argv[]){
 	char cache_fn[4096+1+6]; /* max_path + null + "cache:" */
 	strcpy(cache_fn,"cache:");
 
+	printf("%03d\n", plc);
+
+	/* save termio state */
+	static struct termios termios_state; 
+	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ);
+
 	char* home_dir=getenv("HOME");
 	if(NULL==home_dir){
 		printf("ERROR: $HOME unset. Environment appears faulty.\n");
@@ -134,12 +140,6 @@ int main(int argc, char *argv[]){
 	strcpy(state_fn,cfg_dir);
 	strcat(state_fn,STATEFN);
 
-	struct stat st;
-	if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
-		printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate it.\n");
-		goto quit;
-	}
-
 	int fd;
 	int pllen=0;
 	/* write arguments to playlist file, enabling run-time mods */
@@ -164,6 +164,12 @@ int main(int argc, char *argv[]){
 		validate(fd=open(playlist_fn,O_WRONLY|O_CREAT|O_TRUNC,0775),PLAYLIST_WRITE_OPEN);
 		validate(write(fd,plmap,plmo),PLAYLIST_WRITE);
 		validate(close(fd),PLAYLIST_WRITE_CLOSE);
+	}
+
+	struct stat st;
+	if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
+		printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate it.\n");
+		goto quit;
 	}
 
 	/* load playlist file */
@@ -200,10 +206,6 @@ int main(int argc, char *argv[]){
 		pos=state.pos-1;
 	}
 	
-	/* save termio state */
-	static struct termios termios_state; 
-	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ);
-
 	close(2);
 	validate(pipe(pipefd),PIPE);
 	validate(output_pid=vfork(),OUTPUT_FORK);
