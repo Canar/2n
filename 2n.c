@@ -109,8 +109,6 @@ int main(int argc, char *argv[]){
 	char cache_fn[4096+1+6]; /* max_path + null + "cache:" */
 	strcpy(cache_fn,"cache:");
 
-	printf("%03d\n", plc);
-
 	/* save termio state */
 	static struct termios termios_state; 
 	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ);
