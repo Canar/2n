@@ -53,7 +53,13 @@ Configuration is performed by editing `config.h` before building.\
 ## Known Issues
 Timestamp is inaccurate.
 
-Zero error-handling. Not opposed to adding some, but I never encounter errors.
+Zero error-handling. Not opposed to adding some.
+
+I used to say I never encounter errors.\
+I encountered my first issue since launch.\
+An update had broken ffmpeg and the error was not noticed.\
+I need to replicate the error and add the appropriate handler.\
+This ought to be as easy as handling non-zero error codes.
 
 ## Planned Enhancements
 
