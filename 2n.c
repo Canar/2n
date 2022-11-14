@@ -246,7 +246,12 @@ int main(int argc, char *argv[]){
 				dup2(pipefd[1],1);
 				close(pipefd[1]);
 				strcpy(&cache_fn[6],pl[pos]);
-				execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",(char*)0);
+				execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
+					#ifdef DEBUG
+					"-report",
+					#endif
+					(char*)0
+				);
 				cache_fn[6]='\0';
 			}
 		}

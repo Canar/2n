@@ -65,4 +65,5 @@ handle Windows-specific code here.
 ## Release Log
 0.1 - Initial private release.\
 0.2 - First git publication. `2022-06-25`\
-0.3a - Fixed Termux platform stuff. `2022-06-29`
+0.3a - Fixed Termux platform stuff. `2022-06-29`\
+0.2.1 - Added DEBUG ffmpeg -report switch `2022-11-13`
