@@ -1,1 +1,2 @@
 - repair short file issue / file end issue
+- when locale isn't UTF-8, sending the cross as client name causes pacat to terminate - 20230824

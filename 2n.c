@@ -204,7 +204,9 @@ int main(int argc, char *argv[]){
 		pos=state.pos-1;
 	}
 	
+#ifndef DEBUG
 	close(2);
+#endif
 	validate(pipe(pipefd),PIPE);
 	validate(output_pid=vfork(),OUTPUT_FORK);
 	if(0==output_pid){
@@ -212,7 +214,7 @@ int main(int argc, char *argv[]){
 		dup2(pipefd[0],0);
 		close(pipefd[0]);
 		/* execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0); */
-		execlp("pacat","-p","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
+		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
 	}
 
 	char ss_buf[22]={'0',0,'0',0};
