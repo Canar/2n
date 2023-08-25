@@ -5,7 +5,7 @@
 #define PKG        "2n"
 #define VERMAJ     0
 #define VERMIN     2
-#define VERPT      1
+#define VERPT      2
 #define VER        STR(VERMAJ) "." STR(VERMIN) "." STR(VERPT)
 #define VERTXT     "✝ v" VER
 #define PKGVER     PKG " " VERTXT
