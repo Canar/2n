@@ -29,7 +29,8 @@ Keystroke commands during playback:\
 ## Features and Configuration
 
 `2n` supports every input and output format that `ffmpeg` does.\
-Default configuration plays to the `default` Pulseaudio device.
+Default configuration plays to the `default` Pulseaudio device.\
+Pulseaudio devices are handled through the `pacat` executable.
 
 User-editable playlist is loaded at runtime and found at\
 `$HOME / CFGDIR / PLAYLISTFN` per `config.h`.\
