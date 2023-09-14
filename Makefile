@@ -4,8 +4,12 @@ MINGW_CPP=x86_64-w64-mingw32-gcc
 WAVEOUT_CC=waveout.0.c
 PREFIX=/usr/local/bin
 
-$(PROG):	2n.c Makefile config.h config.linux.h
-	$(CC) $(CFLAGS) -o $(PROG) 2n.c
+$(PROG):	$(PROG).c Makefile config.h config.linux.h
+	$(CC) $(CFLAGS) -o $(PROG) $(PROG).c
+
+config.h:	config.linux.h
+	echo Defaulting to Linux config. Symlink a different config for other platforms.
+	ln -s config.linux.h config.h
 
 tcc:
 	tcc -o $(PROG) 2n.c

@@ -45,7 +45,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	check(DS_OK != dsvt->GetCaps(pDS, &dscaps), "Couldn't get DS caps");
 	check(dscaps.dwFlags & DSCAPS_EMULDRIVER,"No DS driver installed");
 
-	check(DS_OK != dsvt->SetCooperativeLevel(pDS, GetConsoleWindow(), DSSCL_BACKGROUND | DSSCL_EXCLUSIVE),"Set coop level failed");
+	check(DS_OK != dsvt->SetCooperativeLevel(pDS, GetConsoleWindow(), DSSCL_EXCLUSIVE),"Set coop level failed");
 
 	DSBUFFERDESC	dsbuf;
 	memset (&dsbuf, 0, sizeof(dsbuf));
@@ -57,92 +57,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	DSBCAPS dsbcaps;
 	memset(&dsbcaps, 0, sizeof(dsbcaps));
 	dsbcaps.dwSize = sizeof(dsbcaps);
-	primary_format_set = false;
 
-	if (DS_OK == pDS->lpVtbl->CreateSoundBuffer(pDS, &dsbuf, &pDSPBuf, NULL)){
-		pformat = format;
+	check(DS_OK != dsvt->CreateSoundBuffer(pDS, &dsbuf, &pDSPBuf, NULL),"CreateSoundBuffer failed");
+	check(DS_OK != dsvt->SetFormat(pDSPBuf, &wf),"SetFormat failed");
 
-		if (DS_OK != pDSPBuf->lpVtbl->SetFormat (pDSPBuf, &pformat))
-		{
-			if (snd_firsttime)
-				Con_SafePrintf ("Set primary sound buffer format: no\n");
-		}
-		else
-		{
-			if (snd_firsttime)
-				Con_SafePrintf ("Set primary sound buffer format: yes\n");
-
-			primary_format_set = true;
-		}
-	}
-
-	if (!primary_format_set || !COM_CheckParm ("-primarysound"))
-	{
-	// create the secondary buffer we'll actually work with
-		memset (&dsbuf, 0, sizeof(dsbuf));
-		dsbuf.dwSize = sizeof(DSBUFFERDESC);
-		dsbuf.dwFlags = DSBCAPS_CTRLFREQUENCY | DSBCAPS_LOCSOFTWARE;
-		dsbuf.dwBufferBytes = SECONDARY_BUFFER_SIZE;
-		dsbuf.lpwfxFormat = &format;
-
-		memset(&dsbcaps, 0, sizeof(dsbcaps));
-		dsbcaps.dwSize = sizeof(dsbcaps);
-
-		if (DS_OK != pDS->lpVtbl->CreateSoundBuffer(pDS, &dsbuf, &pDSBuf, NULL))
-		{
-			Con_SafePrintf ("DS:CreateSoundBuffer Failed");
-			FreeSound ();
-			return SIS_FAILURE;
-		}
-
-		shm->channels = format.nChannels;
-		shm->samplebits = format.wBitsPerSample;
-		shm->speed = format.nSamplesPerSec;
-
-		if (DS_OK != pDSBuf->lpVtbl->GetCaps (pDSBuf, &dsbcaps))
-		{
-			Con_SafePrintf ("DS:GetCaps failed\n");
-			FreeSound ();
-			return SIS_FAILURE;
-		}
-
-		if (snd_firsttime)
-			Con_SafePrintf ("Using secondary sound buffer\n");
-	}
-	else
-	{
-		if (DS_OK != pDS->lpVtbl->SetCooperativeLevel (pDS, mainwindow, DSSCL_WRITEPRIMARY))
-		{
-			Con_SafePrintf ("Set coop level failed\n");
-			FreeSound ();
-			return SIS_FAILURE;
-		}
-
-		if (DS_OK != pDSPBuf->lpVtbl->GetCaps (pDSPBuf, &dsbcaps))
-		{
-			Con_Printf ("DS:GetCaps failed\n");
-			return SIS_FAILURE;
-		}
-
-		pDSBuf = pDSPBuf;
-		Con_SafePrintf ("Using primary sound buffer\n");
-	}
-
-	// Make sure mixer is active
-	pDSBuf->lpVtbl->Play(pDSBuf, 0, 0, DSBPLAY_LOOPING);
-
-	if (snd_firsttime)
-		Con_SafePrintf("   %d channel(s)\n"
-		               "   %d bits/sample\n"
-					   "   %d bytes/sec\n",
-					   shm->channels, shm->samplebits, shm->speed);
-	
-	gSndBufSize = dsbcaps.dwBufferBytes;
+	check(DS_OK != dsvt->SetCooperativeLevel (pDS, GetConsoleWindow(),DSSCL_WRITEPRIMARY),"SetCoop failed");
+	dsvt->Play(pDSBuf, 0, 0, DSBPLAY_LOOPING);
 
 // initialize the buffer
 	reps = 0;
 
-	while ((hresult = pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &lpData, &dwSize, NULL, NULL, 0)) != DS_OK)
+	while ((hresult = dsvt->Lock(pDSBuf, 0, dsbcaps.dwBufferBytes, &lpData, &dwSize, NULL, NULL, 0)) != DS_OK)
 	{
 		if (hresult != DSERR_BUFFERLOST)
 		{
@@ -161,27 +86,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 
 	memset(lpData, 0, dwSize);
-//		lpData[4] = lpData[5] = 0x7f;	// force a pop for debugging
+	lpData[4] = lpData[5] = 0x7f;	// force a pop for debugging
 
-	pDSBuf->lpVtbl->Unlock(pDSBuf, lpData, dwSize, NULL, 0);
-
-	we don't want anyone to access the buffer directly w/o locking it first. 
-	lpData = NULL; 
-
-	pDSBuf->lpVtbl->Stop(pDSBuf);
-	pDSBuf->lpVtbl->GetCurrentPosition(pDSBuf, &mmstarttime.u.sample, &dwWrite);
-	pDSBuf->lpVtbl->Play(pDSBuf, 0, 0, DSBPLAY_LOOPING);
-
-	shm->soundalive = true;
-	shm->splitbuffer = false;
-	shm->samples = gSndBufSize/(shm->samplebits/8);
-	shm->samplepos = 0;
-	shm->submission_chunk = 1;
-	shm->buffer = (unsigned char *) lpData;
-	sample16 = (shm->samplebits/8) - 1;
-
-	dsound_init = true;
-*/
+	dsvt->Unlock(pDSBuf, lpData, dwSize, NULL, 0);
+	dsvt->Stop(pDSBuf);
+	dsvt->GetCurrentPosition(pDSBuf, &mmstarttime.u.sample, &dwWrite);
+	dsvt->Play(pDSBuf, 0, 0, DSBPLAY_LOOPING);
 	printf("hello world\n");
 	return(0);
 }
