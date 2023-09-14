@@ -3,9 +3,13 @@ PROG=2n
 MINGW_CPP=x86_64-w64-mingw32-gcc
 WAVEOUT_CC=waveout.0.c
 PREFIX=/usr/local/bin
+FF=$(shell which ffmpeg || echo /usr/bin/does_not_exist )
 
-$(PROG):	$(PROG).c Makefile config.h config.linux.h
+$(PROG):	$(PROG).c Makefile config.h config.linux.h $(FF)
 	$(CC) $(CFLAGS) -o $(PROG) $(PROG).c
+
+$(FF):	
+	@echo Warning: FFMPEG executable not found. 2n will build but not function.
 
 config.h:	config.linux.h
 	echo Defaulting to Linux config. Symlink a different config for other platforms.
