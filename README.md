@@ -8,7 +8,7 @@
 A minimalist, portable audio player written in C.\
 Pipes audio from `ffmpeg` into a local raw player.\
 Tested on Linux and Windows but probably ports elsewhere.\
-`pacat` is default, `waveOut-write.exe` for `mingw`.
+`pacat` is default, `waveOut-write.exe` for Windows-MinGW.
 
 Plays a single, user-editable playlist gaplessly.\
 Remembers where it was when you quit.
@@ -41,9 +41,13 @@ at the time elapsed when quit.\
 (Note that this might give unexpected results if/when the filename\
 at that line number changes!)
 
-`2n` runs on both Linux and MinGW-Windows. Windows platform requires\
-build and install of `waveOut-write.exe` and is more unsupported\
-than anything else.
+<!-- ======================================================================= -->
+
+### Windows-MinGW
+
+`waveOut-write.exe` is like `pacat` for Windows-MinGW.\
+It worked when I tested. Haven't bothered to hook it up right yet.\
+Some DirectSound experimentation in the `ds*` files.
 
 ### Configuration files
 
@@ -52,22 +56,16 @@ Configuration is performed by editing `config.h` before building.\
 `ln -sf config.platform.h config.h` to select your configuration.
 
 ## Known Issues
-Timestamp is inaccurate.
 
-Zero error-handling. Not opposed to adding some.
-
-I used to say I never encounter errors.\
-I encountered my first issue since launch.\
-An update had broken ffmpeg and the error was not noticed.\
-I need to replicate the error and add the appropriate handler.\
-This ought to be as easy as handling non-zero error codes.
+- Timestamp is inaccurate.
+- Zero error-handling. If decoder errors, track is skipped.
+- Decoder process can underrun and cause an audible skip.
+- Output process terminates too early. (Short files won't play.)
 
 ## Planned Enhancements
 
-At some point, playlist handling will change such that the playlist\
-automatically reloads when the playlist file is modified. This may\
-need to be a platform-specific feature as I'm not sure I care to\
-handle Windows-specific code here.
+- Reload playlist when modified.
+- Proper Windows-MinGW build code.
 
 ## Release Log
 0.1 - Initial private release.\
