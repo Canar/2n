@@ -9,6 +9,7 @@
 #include <dsound.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <io.h>
 #include <fcntl.h>
 
@@ -37,7 +38,6 @@ void dsbd_init(DSBUFFERDESC* dsbd,WAVEFORMATEX* wf){
 	dsbd->lpwfxFormat = wf;
 }
 
-
 int main(int argc, char** argv) {
 	LPDIRECTSOUND lpds;
 	HRESULT result;
@@ -51,24 +51,23 @@ int main(int argc, char** argv) {
 	DSBUFFERDESC dsbdesc = {0};dsbd_init(&dsbdesc,&wf);
 
 	LPDIRECTSOUNDBUFFER lpdsb;
-	DSCK(lpds->lpVtbl->CreateSoundBuffer(lpds, &dsbdesc, &lpdsb, NULL));
+	DSCK(dst->CreateSoundBuffer(lpds, &dsbdesc, &lpdsb, NULL));
 	 
-	DWORD playCursor, writeCursor, bufferSize, lockSize, wanted, written_to, written, bytes_read;
+	DWORD playCursor, writeCursor, bufferSize, lockSize, written;
 	BYTE buffer[BUFFER_SIZE_BYTES];
 	_setmode(_fileno(stdin), _O_BINARY); //required
 
-	LPVOID lpb;
-	DWORD szb;
-	DSCK(lpdsb->lpVtbl->Lock(lpdsb, 0, BUFFER_SIZE_BYTES, &lpb, &szb, 0, 0, DSBLOCK_ENTIREBUFFER));
-	DSCK(lpdsb->lpVtbl->Unlock(lpdsb, lpb, bytes_read=fread(lpb, 1, szb, stdin), 0, 0));
+	int bytes_read;
+	char* data;
+	uint32_t size,wanted,written_to=0;
+	DSCK(lpdsb->lpVtbl->Lock(lpdsb, 0, BUFFER_SIZE_BYTES, &data, &size, 0, 0, DSBLOCK_ENTIREBUFFER));
+	DSCK(lpdsb->lpVtbl->Unlock(lpdsb, data, bytes_read=fread(data, 1, size, stdin), 0, 0));
 	DSCK(lpdsb->lpVtbl->Play(lpdsb, 0, 0, DSBPLAY_LOOPING));
-
-	written_to=0;
 
 #define ACTFRAC BUFFER_SIZE_BYTES / 5
 
 	while (bytes_read>0) {
-		DSCK(lpdsb->lpVtbl->GetCurrentPosition(lpdsb, &playCursor, &writeCursor));
+		DSCK(lpdsb->lpVtbl->GetCurrentPosition(lpdsb, &playCursor, 0));
 		
 		if(written_to==0){ // if you've written to the end
 			if(playCursor < ACTFRAC){ // and it isn't part played yet, sleep
@@ -84,11 +83,18 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		if(( wanted < ACTFRAC) && (!(wanted + written_to == BUFFER_SIZE_BYTES))){ Sleep(100); }else{
-			DSCK(lpdsb->lpVtbl->Lock(lpdsb, written_to, wanted, &lpb, &szb, 0, 0, 0 ));
-			DSCK(lpdsb->lpVtbl->Unlock(lpdsb, lpb, bytes_read = fread(lpb, 1, szb, stdin), 0, 0));
-			written_to = (written_to+bytes_read)==BUFFER_SIZE_BYTES ? 0 : written_to+bytes_read;
-			if(bytes_read==0) memset(lpb,1024,0);
+		if(( wanted < ACTFRAC) && (!(wanted + written_to == BUFFER_SIZE_BYTES))){ //ignore small write unless it fills buffer
+			Sleep(100); 
+		}else{
+			DSCK(lpdsb->lpVtbl->Lock(lpdsb, written_to, wanted, &data, &size, 0, 0, 0 ));
+			DSCK(lpdsb->lpVtbl->Unlock(lpdsb, data, bytes_read = fread(data, 1, size, stdin), 0, 0));
+			int new_written_to=written_to+bytes_read;
+			written_to = new_written_to==BUFFER_SIZE_BYTES ? 0 : new_written_to;
+			if(bytes_read==0){ //EOF -> write a little silence at the end so imprecisely timed stop doesn't matter
+				DSCK(lpdsb->lpVtbl->Lock(lpdsb, written_to, 1024, &data, &size, 0, 0, 0 ));
+				memset(data,size,0);
+				DSCK(lpdsb->lpVtbl->Unlock(lpdsb, data, size, 0, 0));
+			}
 		}
 	}
 	Sleep(((BUFFER_SIZE_BYTES-playCursor)+written_to) * 10 / 441 / 4);
