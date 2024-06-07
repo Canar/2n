@@ -45,6 +45,14 @@ ds-test: tmp.raw DSound-write.exe
 	cat tmp.raw | wine DSound-write.exe
 
 tmp.raw:
-	ffmpeg -loglevel -8 -i /media/gondolin/audio/seedbox/2303/*Tunes\ 2*/$$(( $$RANDOM % 17 + 1 ))*.flac -ac 2 -ar 44100 -f s16le tmp.raw
+	ffmpeg -loglevel -8 -i /media/gondolin/audio/seedbox/2303/*Tunes\ 2*/$(shell printf '%02d' $$(( $$RANDOM % 17 + 1 )))*.flac -ac 2 -ar 44100 -f s16le tmp.raw
 
-.PHONY: install debug tcc waveout
+ds-backup: DSound-write.c.bak
+
+DSound-write.c.bak:
+	cp DSound-write.c DSound-write.c.bak
+
+clean-ds:
+	rm DSound-write.exe tmp.raw
+
+.PHONY: install debug tcc waveout DSound-write.c.bak
