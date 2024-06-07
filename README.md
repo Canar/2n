@@ -41,19 +41,17 @@ at the time elapsed when quit.\
 (Note that this might give unexpected results if/when the filename\
 at that line number changes!)
 
-<!-- ======================================================================= -->
-
-### Windows-MinGW
-
-`waveOut-write.exe` is like `pacat` for Windows-MinGW.\
-It worked when I tested. Haven't bothered to hook it up right yet.\
-Some DirectSound experimentation in the `ds*` files.
-
 ### Configuration files
 
 Configuration is performed by editing `config.h` before building.\
 `2n` defines sample output format at compile-time via `config.h`.\
 `ln -sf config.platform.h config.h` to select your configuration.
+
+### Windows-MinGW
+
+`waveOut-write.exe` is like `pacat` for Windows-MinGW.\
+`2n.c` must be edited before building to make it work.\
+Some DirectSound experimentation exists in the `ds*` files.
 
 ## Known Issues
 
@@ -61,11 +59,13 @@ Configuration is performed by editing `config.h` before building.\
 - Zero error-handling. If decoder errors, track is skipped.
 - Decoder process can underrun and cause an audible skip.
 - Output process terminates too early. (Short files won't play.)
+- Some .WAV files behave strangely.
 
 ## Planned Enhancements
 
 - Reload playlist when modified.
 - Proper Windows-MinGW build code.
+- Handle ffmpeg errors.
 
 ## Release Log
 0.1 - Initial private release.\

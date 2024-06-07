@@ -3,6 +3,7 @@ PROG=2n
 MINGW_CPP=x86_64-w64-mingw32-gcc
 WAVEOUT_CC=waveout.0.c
 PREFIX=/usr/local/bin
+SHELL=/bin/bash
 FF=$(shell which ffmpeg || echo /usr/bin/does_not_exist )
 
 $(PROG):	$(PROG).c Makefile config.h config.linux.h $(FF)
@@ -34,5 +35,16 @@ waveOut-write.exe:	waveOut-write.c
 
 install:	2n
 	cp $(PROG) $(PREFIX)/$(PROG)
+
+ds: DSound-write.exe
+
+DSound-write.exe: DSound-write.c
+	$(MINGW_CPP) -o DSound-write.exe DSound-write.c -ldsound
+
+ds-test: tmp.raw DSound-write.exe
+	cat tmp.raw | wine DSound-write.exe
+
+tmp.raw:
+	ffmpeg -loglevel -8 -i /media/gondolin/audio/seedbox/2303/*Tunes\ 2*/$$(( $$RANDOM % 17 + 1 ))*.flac -ac 2 -ar 44100 -f s16le tmp.raw
 
 .PHONY: install debug tcc waveout
