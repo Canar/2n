@@ -49,9 +49,9 @@ Configuration is performed by editing `config.h` before building.\
 
 ### Windows-MinGW
 
-`waveOut-write.exe` is like `pacat` for Windows-MinGW.\
-`2n.c` must be edited before building to make it work.\
-Some DirectSound experimentation exists in the `ds*` files.
+`waveOut-write.exe` is like `pacat` for waveOut API on Windows-MinGW.\
+`DSound-write.exe` is like `pacat` for DSound API on Windows-MinGW.\
+`2n.c` must be edited before building to make these work.
 
 ## Known Issues
 
@@ -73,4 +73,5 @@ Some DirectSound experimentation exists in the `ds*` files.
 0.3a - Fixed Termux platform stuff. `2022-06-29`\
 0.2.1 - Added DEBUG ffmpeg -report switch `2022-11-13`\
 0.2.2 - DEBUG no longer closes STDERR `2023-08-24`\
-HEAD - Makefile improvements `2023-09-13`
+HEAD - Makefile improvements `2023-09-13`\
+HEAD - DirectSound shim `2024-06-07`
