@@ -13,6 +13,8 @@ Tested on Linux and Windows but probably ports elsewhere.\
 Plays a single, user-editable playlist gaplessly.\
 Remembers where it was when you quit.
 
+Name is pronounced "tune".
+
 ## Usage
 
 Create a 2n playlist and play it:\

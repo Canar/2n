@@ -97,9 +97,107 @@ int prefix_len(int plen,int count,char* ary[]){
 		for(int i=1;i<count;i++)
 			if(!(ary[0][j]==ary[i][j]))
 				return(j);
+	return(count);
 }
 
+//evaluates full path of files in inv array, allocates to outv
+void validate_playlist(int count,char** inv,char** outv,char*** plv){
+//void validate_playlist(int count,char* inv[],char** outv[]){
+	char* rp[count];
+	int rpc[count];//chars in realpath path of index
+	size_t pc=0;
+
+	//get realpath output
+	for(int i=0;i<count;i++){
+		rp[i]=realpath(inv[i],NULL);
+		rpc[i]=strlen(rp[i]);
+		pc+=rpc[i]+1;
+	}
+
+	//alloc a contiguous block
+	(*outv)=malloc(pc);
+	(*plv)=malloc(count*sizeof(char*));
+
+	//init loop
+	for(int i=0,pc=0;i<count;i++){
+		memcpy(&(*outv)[pc],rp[i],rpc[i]);
+		(*outv)[pc+rpc[i]]=0;
+		(*plv)[i]=&(*outv)[pc];
+		free(rp[i]);
+		pc+=rpc[i]+1;
+	}
+}
+
+//evaluates config dirs, ensures they exist
+void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** prefix){
+	//check HOME dir
+	char* home_dir=getenv("HOME");
+	if(NULL==home_dir){
+		printf("ERROR: $HOME unset. Environment appears faulty.\n");
+		exit(1);
+	}
+
+	//make config dir CFGDIR
+	int cfg_dir_len=strlen(home_dir)+strlen(CFGDIR)+1;
+	char* cfg_dir=malloc(cfg_dir_len);
+	strcpy(cfg_dir,home_dir);
+	strcat(cfg_dir,CFGDIR);
+	int ret=mkdir(cfg_dir,0775);
+	if(-1==ret){
+		if(EEXIST!=errno){
+			printf("ERROR: %d in mkdir()\n",errno);
+			exit(1);
+		}
+	}
+
+	//define playlist and state filenames
+	*playlist_fn = malloc(cfg_dir_len+strlen(PLAYLISTFN));
+	strcpy(*playlist_fn,cfg_dir);
+	strcat(*playlist_fn,PLAYLISTFN);
+
+	*state_fn=malloc(cfg_dir_len+strlen(STATEFN));
+	strcpy(*state_fn,cfg_dir);
+	strcat(*state_fn,STATEFN);
+
+	//calc prefix
+	int plen=strlen(pl[0]);
+	plen=prefix_len(plen,plc,pl);
+	*prefix=malloc(plen+1);
+	memcpy(*prefix,pl[0],plen);
+	prefix[plen]=0;
+}
+
+void print_usage(){
+	/*
+	 * --loop -l - loop final track in playlist
+	 * --playlist -p [playlist_name] -  use non-default playlist
+	 * --relative -r - don't use realpath() to ensure absolute path [useless?]
+	 * --quiet -q - don't perform playback
+	 * --service -s - service mode
+	 * 	changes some semantics, stops giving every-second updates
+	 * 	autodetected if stdin is closed?
+	 *
+	 * --loglevel -v [value] - set loglevel
+	 *  	56 - trace
+	 *  	48 - debug
+	 *  	40 - verbose - metadata?
+	 *		32 - info - one line per track
+	 *		24 - warning - one line per invocation
+	 *		16 - error
+	 *		8 - fatal
+	 *		0 - panic
+	 *		-8 - silent
+	 */ 
+}
+
+enum PIDS {RET,REFRESH,INPUT,DECODE,OUTPUT};
+
+
+
 int main(int argc, char *argv[]){
+	static struct termios termios_state; 
+	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ); /* save termio state */
+
 	int output_pid;
 	int decode_pid=-3; 
 	int input_pid=-2;
@@ -116,19 +214,18 @@ int main(int argc, char *argv[]){
 	int plc=argc-1;
 	int plen;
 
-	char cache_fn[4096+1+6]; /* max_path + null + "cache:" */
-	strcpy(cache_fn,"cache:");
+	// caching is a hack to tell ffmpeg to cache more of the input
+	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 
-	/* save termio state */
-	static struct termios termios_state; 
-	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ);
-
+	/*
+	//check HOME dir
 	char* home_dir=getenv("HOME");
 	if(NULL==home_dir){
 		printf("ERROR: $HOME unset. Environment appears faulty.\n");
 		goto quit;
 	}
 
+	//make config dir CFGDIR
 	int cfg_dir_len=strlen(home_dir)+strlen(CFGDIR)+1;
 	char* cfg_dir=malloc(cfg_dir_len);
 	strcpy(cfg_dir,home_dir);
@@ -141,16 +238,21 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	//define playlist and state filenames
 	char* playlist_fn=malloc(cfg_dir_len+strlen(PLAYLISTFN));
 	strcpy(playlist_fn,cfg_dir);
 	strcat(playlist_fn,PLAYLISTFN);
 	char* state_fn=malloc(cfg_dir_len+strlen(STATEFN));
 	strcpy(state_fn,cfg_dir);
 	strcat(state_fn,STATEFN);
+	*/
 
+	//use realpath to get canonical path names of playlist
 	int fd;
 	int pllen=0;
+	char*playlist_fn,*state_fn,*prefix;
 	/* write arguments to playlist file, enabling run-time mods */
+	/*
 	if(argc>1){
 		char** plrp=malloc(plc*sizeof(char*));
 		for(int i=0;i<plc;i++){
@@ -168,19 +270,21 @@ int main(int argc, char *argv[]){
 			plmo+=plmoi;
 		}
 		free(plrp);
+		
 
 		validate(fd=open(playlist_fn,O_WRONLY|O_CREAT|O_TRUNC,0775),PLAYLIST_WRITE_OPEN);
 		validate(write(fd,plmap,plmo),PLAYLIST_WRITE);
 		validate(close(fd),PLAYLIST_WRITE_CLOSE);
 	}
 
+	//
 	struct stat st;
 	if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
 		printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate it.\n");
 		goto quit;
 	}
 
-	/* load playlist file */
+	// load playlist file 
 	validate(stat(playlist_fn,&st),PLAYLIST_READ_STAT);
 	pllen=st.st_size;
 	validate(fd=open(playlist_fn,O_RDONLY),PLAYLIST_READ_OPEN);
@@ -197,26 +301,41 @@ int main(int argc, char *argv[]){
 		if(0==plmap[i])
 			pl[j++]=&plmap[i+1];
 
-	/* calculate/print file prefix */
+	*/
+	validate_playlist(argc-1,&argv[1],&plmap,&pl);
+	dir_eval(plc,pl,&playlist_fn,&state_fn,&prefix);
+	printf("%s\n",prefix);
+	//void dir_eval(int plc, char* pl, char** playlist_fn, char** state_fn, char** prefix){
+
+	
+	/*
+	// calculate/print file prefix
 	plen=strlen(pl[0]);
 	plen=prefix_len(plen,plc,pl);
 	char* prefix=malloc(plen+1);
 	memcpy(prefix,pl[0],plen);
 	prefix[plen]=0;
 	printf("%s\n",prefix);
+	*/
 
-	/* read state */
+	// read state
 	statest state={.off=0,.pos=-1};
+	/*
 	if(!(0>stat(state_fn,&st) || 1<argc)){
 		validate(fd=open(state_fn,O_RDONLY),STATE_READ_OPEN);
 		validate(read(fd,&state,sizeof(statest))-sizeof(statest),STATE_READ);
 		validate(close(fd),STATE_READ_CLOSE);
 		pos=state.pos-1;
 	}
-	
+	*/
+
+	//playback begins
+	//open output process
 #ifndef DEBUG
-	close(2);
+	close(2); //hide stderr
 #endif
+	//pipefd, pids, plc, state
+
 	validate(pipe(pipefd),PIPE);
 	validate(output_pid=vfork(),OUTPUT_FORK);
 	if(0==output_pid){
@@ -227,7 +346,8 @@ int main(int argc, char *argv[]){
 		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
 	}
 
-	char ss_buf[22]={'0',0,'0',0};
+	char ss_buf[22]={'0',0,'0',0}; // contains start location
+	int ret;
 	while(1){
 		
 		if(ret_pid==output_pid){
@@ -319,6 +439,6 @@ int main(int argc, char *argv[]){
 	if(input_pid>0) 
 		kill(input_pid,SIGINT);
 	printf("\e[2K\r    ]  " PKGVER "  [    \n");
-	validate(tcsetattr(STDIN,TCSAFLUSH,&termios_state),TERMIOS_WRITE);
+	validate(tcsetattr(STDIN,TCSANOW,&termios_state),TERMIOS_WRITE);
 	return(0);
 }
