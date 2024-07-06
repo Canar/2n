@@ -45,7 +45,8 @@ ds-test: tmp.raw DSound-write.exe
 	cat tmp.raw | wine DSound-write.exe
 
 tmp.raw:
-	ffmpeg -loglevel -8 -i /media/gondolin/audio/seedbox/2303/*Tunes\ 2*/$(shell printf '%02d' $$(( $$RANDOM % 17 + 1 )))*.flac -ac 2 -ar 44100 -f s16le -ss 5 -t 30 tmp.raw
+	ffmpeg -loglevel -8 -i /media/gondolin/audio/seedbox/2303/*Tunes\ 2*/$(shell printf '%02d' $$(( $$RANDOM % 17 + 1 )))*.flac -ac 2 -ar 44100 -f f32le tmp.raw
+	#ffmpeg -loglevel -8 -i /media/gondolin/audio/seedbox/2303/*Tunes\ 2*/$(shell printf '%02d' $$(( $$RANDOM % 17 + 1 )))*.flac -ac 2 -ar 44100 -f s16le -ss 5 -t 30 tmp.raw
 
 ds-backup: DSound-write.c.bak
 

@@ -91,7 +91,7 @@ void validate(int retval,enum ERROR kind){
 }
 
 int prefix_len(int plen,int count,char* ary[]){
-	if(count<1)
+	if(count<=1)
 		return(plen);
 	for(int j=0;j<plen;j++)
 		for(int i=1;i<count;i++)
@@ -129,7 +129,7 @@ void validate_playlist(int count,char** inv,char** outv,char*** plv){
 }
 
 //evaluates config dirs, ensures they exist
-void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** prefix){
+void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** prefix, int* plen){
 	//check HOME dir
 	char* home_dir=getenv("HOME");
 	if(NULL==home_dir){
@@ -155,16 +155,16 @@ void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** pr
 	strcpy(*playlist_fn,cfg_dir);
 	strcat(*playlist_fn,PLAYLISTFN);
 
-	*state_fn=malloc(cfg_dir_len+strlen(STATEFN));
+	*state_fn = malloc(cfg_dir_len+strlen(STATEFN));
 	strcpy(*state_fn,cfg_dir);
 	strcat(*state_fn,STATEFN);
 
 	//calc prefix
-	int plen=strlen(pl[0]);
-	plen=prefix_len(plen,plc,pl);
-	*prefix=malloc(plen+1);
-	memcpy(*prefix,pl[0],plen);
-	prefix[plen]=0;
+	*plen=strlen(pl[0]);
+	*plen=prefix_len(*plen,plc,pl);
+	*prefix=malloc(*plen+1);
+	memcpy(*prefix,pl[0],*plen);
+	prefix[*plen]=0;
 }
 
 void print_usage(){
@@ -193,7 +193,6 @@ void print_usage(){
 enum PIDS {RET,REFRESH,INPUT,DECODE,OUTPUT};
 
 
-
 int main(int argc, char *argv[]){
 	static struct termios termios_state; 
 	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ); /* save termio state */
@@ -212,122 +211,39 @@ int main(int argc, char *argv[]){
 	char** pl;
 	char* plmap;
 	int plc=argc-1;
-	int plen;
 
 	// caching is a hack to tell ffmpeg to cache more of the input
 	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
-
-	/*
-	//check HOME dir
-	char* home_dir=getenv("HOME");
-	if(NULL==home_dir){
-		printf("ERROR: $HOME unset. Environment appears faulty.\n");
-		goto quit;
-	}
-
-	//make config dir CFGDIR
-	int cfg_dir_len=strlen(home_dir)+strlen(CFGDIR)+1;
-	char* cfg_dir=malloc(cfg_dir_len);
-	strcpy(cfg_dir,home_dir);
-	strcat(cfg_dir,CFGDIR);
-	int ret=mkdir(cfg_dir,0775);
-	if(-1==ret){
-		if(EEXIST!=errno){
-			printf("ERROR: %d in mkdir()\n",errno);
-			exit(1);
-		}
-	}
-
-	//define playlist and state filenames
-	char* playlist_fn=malloc(cfg_dir_len+strlen(PLAYLISTFN));
-	strcpy(playlist_fn,cfg_dir);
-	strcat(playlist_fn,PLAYLISTFN);
-	char* state_fn=malloc(cfg_dir_len+strlen(STATEFN));
-	strcpy(state_fn,cfg_dir);
-	strcat(state_fn,STATEFN);
-	*/
 
 	//use realpath to get canonical path names of playlist
 	int fd;
 	int pllen=0;
 	char*playlist_fn,*state_fn,*prefix;
-	/* write arguments to playlist file, enabling run-time mods */
-	/*
-	if(argc>1){
-		char** plrp=malloc(plc*sizeof(char*));
-		for(int i=0;i<plc;i++){
-			plrp[i]=realpath(argv[i+1],NULL);
-			pllen+=strlen(plrp[i])+1;
-		}
 
-		plmap=malloc(pllen);
-		int plmo=strlen(plrp[0])+1;
-		memcpy(plmap,plrp[0],plmo);
-		for(int i=1;i<plc;i++){
-			int plmoi=strlen(plrp[i])+1;
-			memcpy(&plmap[plmo],plrp[i],plmoi);
-			free(plrp[i]);
-			plmo+=plmoi;
-		}
-		free(plrp);
-		
+	//TODO: reimplement playlist load
+	validate_playlist(argc-1,&argv[1],&plmap,&pl); //only valid when executed with args!
 
-		validate(fd=open(playlist_fn,O_WRONLY|O_CREAT|O_TRUNC,0775),PLAYLIST_WRITE_OPEN);
-		validate(write(fd,plmap,plmo),PLAYLIST_WRITE);
-		validate(close(fd),PLAYLIST_WRITE_CLOSE);
-	}
-
-	//
-	struct stat st;
-	if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
-		printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate it.\n");
-		goto quit;
-	}
-
-	// load playlist file 
-	validate(stat(playlist_fn,&st),PLAYLIST_READ_STAT);
-	pllen=st.st_size;
-	validate(fd=open(playlist_fn,O_RDONLY),PLAYLIST_READ_OPEN);
-	plmap=mmap(NULL,pllen,PROT_READ,MAP_SHARED|MAP_POPULATE,fd,0);
-	validate(close(fd),PLAYLIST_READ_CLOSE);
-	plc=0;
-	for(int i=1;i<pllen;i++)
-		if(0==plmap[i])
-			plc++;
-	pl=malloc(plc*sizeof(char*));
-	int j=1;
-	pl[0]=&plmap[0];
-	for(int i=1;(i<pllen)&&(j<plc);i++)
-		if(0==plmap[i])
-			pl[j++]=&plmap[i+1];
-
-	*/
-	validate_playlist(argc-1,&argv[1],&plmap,&pl);
-	dir_eval(plc,pl,&playlist_fn,&state_fn,&prefix);
+	int plen;
+	dir_eval(plc,pl,&playlist_fn,&state_fn,&prefix,&plen);
 	printf("%s\n",prefix);
-	//void dir_eval(int plc, char* pl, char** playlist_fn, char** state_fn, char** prefix){
 
-	
 	/*
-	// calculate/print file prefix
-	plen=strlen(pl[0]);
-	plen=prefix_len(plen,plc,pl);
-	char* prefix=malloc(plen+1);
-	memcpy(prefix,pl[0],plen);
-	prefix[plen]=0;
-	printf("%s\n",prefix);
-	*/
+-       struct stat st;
+-       if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
+-               printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate it.\n");
+-               goto quit;
+-       }
+*/
 
 	// read state
 	statest state={.off=0,.pos=-1};
-	/*
+	struct stat st;
 	if(!(0>stat(state_fn,&st) || 1<argc)){
 		validate(fd=open(state_fn,O_RDONLY),STATE_READ_OPEN);
 		validate(read(fd,&state,sizeof(statest))-sizeof(statest),STATE_READ);
 		validate(close(fd),STATE_READ_CLOSE);
 		pos=state.pos-1;
 	}
-	*/
 
 	//playback begins
 	//open output process
@@ -342,8 +258,9 @@ int main(int argc, char *argv[]){
 		close(pipefd[1]);
 		dup2(pipefd[0],0);
 		close(pipefd[0]);
-		/* execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0); */
+		//execlp("pw-cat","-v","-p","--channels="CHAN,"--format=f32","--rate="RATE,"-",(char*)0);
 		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
+		//execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0);
 	}
 
 	char ss_buf[22]={'0',0,'0',0}; // contains start location
@@ -378,7 +295,7 @@ int main(int argc, char *argv[]){
 				dup2(pipefd[1],1);
 				close(pipefd[1]);
 				strcpy(&cache_fn[6],pl[pos]);
-				execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
+				execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-loglevel","-8","-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
 					#ifdef DEBUG
 					"-report",
 					#endif
