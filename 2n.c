@@ -83,6 +83,24 @@ Windows file change tracking
 	https://learn.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications?redirectedfrom=MSDN
  */
 
+static struct termios *termios_state=NULL; 
+
+#define CK(x) vck(x,__FILE__,__LINE__,NULL)
+void vck(int,char*,int,char*);
+
+void halt(int x){
+	if(termios_state!=NULL)
+		CK(tcsetattr(STDIN,TCSANOW,termios_state));
+	exit(x);
+}
+
+void vck(int retval,char* file,int line,char* msg){
+	if(retval>=0)
+		return;
+	fprintf(stderr, "Error in %s, line %d. Value: %d. %s\n",file,line,retval,msg);
+	halt(1);
+}
+
 void validate(int retval,enum ERROR kind){
 	if(retval>=0)
 		return;
@@ -190,12 +208,111 @@ void print_usage(){
 	 */ 
 }
 
-enum PIDS {RET,REFRESH,INPUT,DECODE,OUTPUT};
+enum PIDS {P_RET,P_REFRESH,P_INPUT,P_DECODE,P_OUTPUT,P_ENUM_COUNT};
+int pids[(int)P_ENUM_COUNT]={0};
+int pipefd[2];
+
+statest state={.off=0,.pos=-1};
+
+int playback(char** pl,int plc,int plen){
+	struct timespec start,now;
+
+	#ifndef DEBUG
+	close(2); //hide stderr
+	#endif
+
+	//setup pids
+
+	CK( pipe(pipefd) );
+	CK( pids[P_OUTPUT]=vfork() );
+	if(0==pids[P_OUTPUT]){
+		close(pipefd[1]);
+		dup2(pipefd[0],0);
+		close(pipefd[0]);
+		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
+		//execlp("pw-cat","-v","-p","--channels="CHAN,"--format=f32","--rate="RATE,"-",(char*)0);
+		//execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0);
+	}
+
+	char ss_buf[22]={'0',0,'0',0}; // contains start location
+	int ret;
+	char key;
+
+	// caching is a hack to tell ffmpeg to cache more of the input
+	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
+
+	//TODO: refactor using poll()
+	while(1){
+		if(pids[P_RET]==pids[P_OUTPUT]){
+			printf("ERROR: Output process died unexpectedly. Terminating.\n");
+			halt(2);
+
+		}else if(pids[P_RET]==pids[P_DECODE]){
+			if(plc==++state.pos)
+				return(0);
+			if(state.pos<0)
+				state.pos=0;
+			if(plc>1)
+				printf("\e[2K\r%s\n",&pl[state.pos][plen]);
+			clock_gettime(CLOCK_MONOTONIC,&start);
+			char* ss=ss_buf;
+			if(state.off>0){
+				start.tv_sec-=state.off;
+				ss=&ss_buf[2];
+				CK( snprintf(ss,20,"%d",state.off) );
+				state.off=0;
+			}
+			if(pids[P_REFRESH]>0)
+				kill(pids[P_REFRESH],SIGINT);
+			CK( pids[P_DECODE]=vfork() );
+			if(0==pids[P_DECODE]){
+				close(pipefd[0]);
+				dup2(pipefd[1],1);
+				close(pipefd[1]);
+				strcpy(&cache_fn[6],pl[state.pos]);
+				execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-loglevel","-8","-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
+					#ifdef DEBUG
+					"-report",
+					#endif
+					(char*)0
+				);
+				cache_fn[6]='\0';
+			}
+		}else if(pids[P_RET]==pids[P_INPUT]){
+				switch(key=WEXITSTATUS(ret)){
+				case 'Q':
+					return(0);
+				case 'P':
+					state.pos-=2; //fallthru
+				case 'N':
+					kill(pids[P_DECODE],SIGINT);
+				}
+				CK( pids[P_INPUT]=fork() );
+				if(0==pids[P_INPUT]){
+					read(0,&key,1);
+					exit((int)toupper(key));
+				}
+		}else if(pids[P_RET]==pids[P_REFRESH]){
+				clock_gettime(CLOCK_MONOTONIC,&now);
+				sprintf(&cache_fn[6],
+					"\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
+					(now.tv_sec-start.tv_sec)/60,
+					(now.tv_sec-start.tv_sec)%60
+				);
+				printf("%s",&cache_fn[6]);
+				cache_fn[6]='\0';
+				CK( pids[P_REFRESH]=fork() );
+				if(0==pids[P_REFRESH]){
+					usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
+					return(0);
+				}
+		}
+		pids[P_RET] = pids[P_RET]<0 ? pids[P_RET]+1 : wait(&ret);
+	}
+}
 
 
 int main(int argc, char *argv[]){
-	static struct termios termios_state; 
-	validate(tcgetattr(STDIN,&termios_state),TERMIOS_READ); /* save termio state */
 
 	int output_pid;
 	int decode_pid=-3; 
@@ -204,7 +321,6 @@ int main(int argc, char *argv[]){
 	int ret_pid=decode_pid;
 
 	int pipefd[2];
-	struct timespec start,now;
 	char key;
 
 	int pos=-1; /* position in playlist */
@@ -212,8 +328,6 @@ int main(int argc, char *argv[]){
 	char* plmap;
 	int plc=argc-1;
 
-	// caching is a hack to tell ffmpeg to cache more of the input
-	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 
 	//use realpath to get canonical path names of playlist
 	int fd;
@@ -236,7 +350,6 @@ int main(int argc, char *argv[]){
 */
 
 	// read state
-	statest state={.off=0,.pos=-1};
 	struct stat st;
 	if(!(0>stat(state_fn,&st) || 1<argc)){
 		validate(fd=open(state_fn,O_RDONLY),STATE_READ_OPEN);
@@ -245,13 +358,15 @@ int main(int argc, char *argv[]){
 		pos=state.pos-1;
 	}
 
+	termios_state=malloc(sizeof(struct termios));
+	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
+	playback(pl,plc,plen);
+
 	//playback begins
 	//open output process
-#ifndef DEBUG
-	close(2); //hide stderr
-#endif
 	//pipefd, pids, plc, state
 
+	/*
 	validate(pipe(pipefd),PIPE);
 	validate(output_pid=vfork(),OUTPUT_FORK);
 	if(0==output_pid){
@@ -310,7 +425,7 @@ int main(int argc, char *argv[]){
 			case 'Q':
 				goto quit;
 			case 'P':
-				pos-=2; /* fallthrough */
+				pos-=2; //fallthru
 			case 'N':
 				kill(decode_pid,SIGINT);
 			}
@@ -355,7 +470,9 @@ int main(int argc, char *argv[]){
 		kill(output_pid,SIGINT);
 	if(input_pid>0) 
 		kill(input_pid,SIGINT);
+	*/
+	for(int i=1;i<P_ENUM_COUNT;i++)
+		kill(pids[i],SIGINT);
 	printf("\e[2K\r    ]  " PKGVER "  [    \n");
-	validate(tcsetattr(STDIN,TCSANOW,&termios_state),TERMIOS_WRITE);
 	return(0);
 }
