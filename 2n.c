@@ -209,7 +209,7 @@ void print_usage(){
 }
 
 enum PIDS {P_RET,P_REFRESH,P_INPUT,P_DECODE,P_OUTPUT,P_ENUM_COUNT};
-int pids[(int)P_ENUM_COUNT]={0};
+int pids[(int)P_ENUM_COUNT]={-3,-1,-2,-3,-4};
 int pipefd[2];
 
 statest state={.off=0,.pos=-1};
@@ -279,33 +279,33 @@ int playback(char** pl,int plc,int plen){
 				cache_fn[6]='\0';
 			}
 		}else if(pids[P_RET]==pids[P_INPUT]){
-				switch(key=WEXITSTATUS(ret)){
-				case 'Q':
-					return(0);
-				case 'P':
-					state.pos-=2; //fallthru
-				case 'N':
-					kill(pids[P_DECODE],SIGINT);
-				}
-				CK( pids[P_INPUT]=fork() );
-				if(0==pids[P_INPUT]){
-					read(0,&key,1);
-					exit((int)toupper(key));
-				}
+			switch(key=WEXITSTATUS(ret)){
+			case 'Q':
+				return(0);
+			case 'P':
+				state.pos-=2; //fallthru
+			case 'N':
+				kill(pids[P_DECODE],SIGINT);
+			}
+			CK( pids[P_INPUT]=fork() );
+			if(0==pids[P_INPUT]){
+				read(0,&key,1);
+				exit((int)toupper(key));
+			}
 		}else if(pids[P_RET]==pids[P_REFRESH]){
-				clock_gettime(CLOCK_MONOTONIC,&now);
-				sprintf(&cache_fn[6],
-					"\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
-					(now.tv_sec-start.tv_sec)/60,
-					(now.tv_sec-start.tv_sec)%60
-				);
-				printf("%s",&cache_fn[6]);
-				cache_fn[6]='\0';
-				CK( pids[P_REFRESH]=fork() );
-				if(0==pids[P_REFRESH]){
-					usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
-					return(0);
-				}
+			clock_gettime(CLOCK_MONOTONIC,&now);
+			sprintf(&cache_fn[6],
+				"\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
+				(now.tv_sec-start.tv_sec)/60,
+				(now.tv_sec-start.tv_sec)%60
+			);
+			printf("%s",&cache_fn[6]);
+			cache_fn[6]='\0';
+			CK( pids[P_REFRESH]=fork() );
+			if(0==pids[P_REFRESH]){
+				usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
+				exit(0);
+			}
 		}
 		pids[P_RET] = pids[P_RET]<0 ? pids[P_RET]+1 : wait(&ret);
 	}
@@ -313,17 +313,6 @@ int playback(char** pl,int plc,int plen){
 
 
 int main(int argc, char *argv[]){
-
-	int output_pid;
-	int decode_pid=-3; 
-	int input_pid=-2;
-	int refresh_pid=-1;
-	int ret_pid=decode_pid;
-
-	int pipefd[2];
-	char key;
-
-	int pos=-1; /* position in playlist */
 	char** pl;
 	char* plmap;
 	int plc=argc-1;
@@ -362,115 +351,6 @@ int main(int argc, char *argv[]){
 	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
 	playback(pl,plc,plen);
 
-	//playback begins
-	//open output process
-	//pipefd, pids, plc, state
-
-	/*
-	validate(pipe(pipefd),PIPE);
-	validate(output_pid=vfork(),OUTPUT_FORK);
-	if(0==output_pid){
-		close(pipefd[1]);
-		dup2(pipefd[0],0);
-		close(pipefd[0]);
-		//execlp("pw-cat","-v","-p","--channels="CHAN,"--format=f32","--rate="RATE,"-",(char*)0);
-		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
-		//execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0);
-	}
-
-	char ss_buf[22]={'0',0,'0',0}; // contains start location
-	int ret;
-	while(1){
-		
-		if(ret_pid==output_pid){
-			printf("ERROR: Output process died unexpectedly. Terminating.\n");
-			return(1);
-		}
-
-		else if(ret_pid==decode_pid){
-			if(plc==++pos)
-				goto quit;
-			if(pos<0)
-				pos=0;
-			if(plc>1)
-				printf("\e[2K\r%s\n",&pl[pos][plen]);
-			clock_gettime(CLOCK_MONOTONIC,&start);
-			char* ss=ss_buf;
-			if(state.off>0){
-				start.tv_sec-=state.off;
-				ss=&ss_buf[2];
-				validate(snprintf(ss,20,"%d",state.off),STATE_READ_SPRINTF);
-				state.off=0;
-			}
-			if(refresh_pid>0)
-				kill(refresh_pid,SIGINT);
-			validate(decode_pid=vfork(),DECODE_FORK);
-			if(0==decode_pid){
-				close(pipefd[0]);
-				dup2(pipefd[1],1);
-				close(pipefd[1]);
-				strcpy(&cache_fn[6],pl[pos]);
-				execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-loglevel","-8","-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
-					#ifdef DEBUG
-					"-report",
-					#endif
-					(char*)0
-				);
-				cache_fn[6]='\0';
-			}
-		}
-
-		else if(ret_pid==input_pid){
-			switch(key=WEXITSTATUS(ret)){
-			case 'Q':
-				goto quit;
-			case 'P':
-				pos-=2; //fallthru
-			case 'N':
-				kill(decode_pid,SIGINT);
-			}
-			validate(input_pid=fork(),INPUT_FORK);
-			if(0==input_pid){
-				read(0,&key,1);
-				return((int)toupper(key));
-			}
-		}
-
-		else if(ret_pid==refresh_pid){
-			clock_gettime(CLOCK_MONOTONIC,&now);
-			sprintf(&cache_fn[6],
-				"\e[2K\r%d/%d %d:%02d > ",pos+1,plc,
-				(now.tv_sec-start.tv_sec)/60,
-				(now.tv_sec-start.tv_sec)%60
-			);
-			printf("%s",&cache_fn[6]);
-			cache_fn[6]='\0';
-			validate(refresh_pid=fork(),REFRESH_FORK);
-			if(0==refresh_pid){
-				usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
-				return(0);
-			}
-		}
-
-		ret_pid= ret_pid<0 ? ret_pid+1 : wait(&ret);
-	}
-
-	quit:
-	state.off=now.tv_sec-start.tv_sec;
-	state.pos=pos;
-	validate(fd=open(state_fn,O_WRONLY|O_CREAT|O_TRUNC,0775),STATE_WRITE_OPEN);
-	validate(write(fd,&state,sizeof(statest)),STATE_WRITE);
-	validate(close(fd),STATE_WRITE_CLOSE);
-
-	if(refresh_pid>0) 
-		kill(refresh_pid,SIGINT);
-	if(decode_pid>0) 
-		kill(decode_pid,SIGINT);
-	if(output_pid>0) 
-		kill(output_pid,SIGINT);
-	if(input_pid>0) 
-		kill(input_pid,SIGINT);
-	*/
 	for(int i=1;i<P_ENUM_COUNT;i++)
 		kill(pids[i],SIGINT);
 	printf("\e[2K\r    ]  " PKGVER "  [    \n");
