@@ -80,10 +80,12 @@ pipe / exec dox - https://www.cs.uleth.ca/~holzmann/C/system/pipeforkexec.html
 Windows file change tracking
 	https://qualapps.blogspot.com/2010/05/understanding-readdirectorychangesw.html
 	https://qualapps.blogspot.com/2010/05/understanding-readdirectorychangesw_19.html
-	https://learn.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications?redirectedfrom=MSDN
+	https://learn.microsoft.com/en-us/windows/win31/fileio/obtaining-directory-change-notifications?redirectedfrom=MSDN
  */
 
 static struct termios *termios_state=NULL; 
+enum PIDS {P_RET,P_REFRESH,P_INPUT,P_DECODE,P_OUTPUT,P_ENUM_COUNT};
+int pids[(int)P_ENUM_COUNT]={-3,-1,-2,-3,-4};
 
 #define CK(x) vck(x,__FILE__,__LINE__,NULL)
 void vck(int,char*,int,char*);
@@ -91,6 +93,12 @@ void vck(int,char*,int,char*);
 void halt(int x){
 	if(termios_state!=NULL)
 		CK(tcsetattr(STDIN,TCSANOW,termios_state));
+
+	if(0==x){
+		for(int i=1;i<P_ENUM_COUNT;i++)
+			kill(pids[i],SIGINT);
+		printf("\e[2K\r    ]  " PKGVER "  [    \n");
+	}
 	exit(x);
 }
 
@@ -108,10 +116,10 @@ void validate(int retval,enum ERROR kind){
 	exit((int)kind+1);
 }
 
-int prefix_len(int plen,int count,char* ary[]){
+int prefix_len(int max,int count,char* ary[]){
 	if(count<=1)
-		return(plen);
-	for(int j=0;j<plen;j++)
+		return(max);
+	for(int j=0;j<max;j++)
 		for(int i=1;i<count;i++)
 			if(!(ary[0][j]==ary[i][j]))
 				return(j);
@@ -147,7 +155,7 @@ void validate_playlist(int count,char** inv,char** outv,char*** plv){
 }
 
 //evaluates config dirs, ensures they exist
-void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** prefix, int* plen){
+void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** prefix, int* prefixc){
 	//check HOME dir
 	char* home_dir=getenv("HOME");
 	if(NULL==home_dir){
@@ -178,15 +186,16 @@ void dir_eval(int plc, char** pl, char** playlist_fn, char** state_fn, char** pr
 	strcat(*state_fn,STATEFN);
 
 	//calc prefix
-	*plen=strlen(pl[0]);
-	*plen=prefix_len(*plen,plc,pl);
-	*prefix=malloc(*plen+1);
-	memcpy(*prefix,pl[0],*plen);
-	prefix[*plen]=0;
+	*prefixc=strlen(pl[0]);
+	*prefixc=prefix_len(*prefixc,plc,pl);
+	*prefix=malloc(*prefixc+1);
+	memcpy(*prefix,pl[0],*prefixc);
+	prefix[*prefixc]=0;
 }
 
 void print_usage(){
 	/*
+	 * --help -h - this
 	 * --loop -l - loop final track in playlist
 	 * --playlist -p [playlist_name] -  use non-default playlist
 	 * --relative -r - don't use realpath() to ensure absolute path [useless?]
@@ -205,24 +214,70 @@ void print_usage(){
 	 *		8 - fatal
 	 *		0 - panic
 	 *		-8 - silent
-	 */ 
+	 */
+	printf("Unimplemented.\n");
 }
 
-enum PIDS {P_RET,P_REFRESH,P_INPUT,P_DECODE,P_OUTPUT,P_ENUM_COUNT};
-int pids[(int)P_ENUM_COUNT]={-3,-1,-2,-3,-4};
 int pipefd[2];
 
 statest state={.off=0,.pos=-1};
 
-int playback(char** pl,int plc,int plen){
+void p_output(){
+	printf("ERROR: Output process died unexpectedly. Terminating.\n");
+	halt(2);
+}
+
+void p_decode(char*** pl,int plc,statest *state, int prefixc, struct timespec *start,int* pipefd[2]){
+	// caching is a hack to tell ffmpeg to cache more of the input
+	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
+	char ss_buf[22]={'0',0,'0',0}; // contains start location
+
+	//local ss
+	//param plc state prefixc start cache_fn? pipefd pids
+	if(plc==++state->pos)
+		halt(0);
+	if(state->pos<0)
+		state->pos=0;
+	if(plc>1)
+		printf("\e[2K\r%s\n",&((*pl)[state->pos][prefixc]));
+	clock_gettime(CLOCK_MONOTONIC,start);
+	char* ss=ss_buf;
+	if(state->off>0){
+		start->tv_sec-=state->off;
+		ss=&ss_buf[2];
+		CK( snprintf(ss,20,"%d",state->off) );
+		state->off=0;
+	}
+	if(pids[P_REFRESH]>0)
+		kill(pids[P_REFRESH],SIGINT);
+	CK( pids[P_DECODE]=vfork() );
+	if(0==pids[P_DECODE]){
+		close((*pipefd)[0]);
+		dup2(*pipefd[1],1);
+		close(*pipefd[1]);
+		strcpy(&cache_fn[6],*pl[state->pos]);
+		execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-loglevel","-8","-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
+			#ifdef DEBUG
+			"-report",
+			#endif
+			(char*)0
+		);
+		cache_fn[6]='\0';
+	}
+}
+
+
+int playback(char** pl,int plc,int prefixc){
+	termios_state=malloc(sizeof(struct termios));
+	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
+
 	struct timespec start,now;
 
 	#ifndef DEBUG
 	close(2); //hide stderr
 	#endif
 
-	//setup pids
-
+	//output
 	CK( pipe(pipefd) );
 	CK( pids[P_OUTPUT]=vfork() );
 	if(0==pids[P_OUTPUT]){
@@ -234,26 +289,24 @@ int playback(char** pl,int plc,int plen){
 		//execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0);
 	}
 
-	char ss_buf[22]={'0',0,'0',0}; // contains start location
 	int ret;
 	char key;
-
-	// caching is a hack to tell ffmpeg to cache more of the input
 	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 
 	//TODO: refactor using poll()
 	while(1){
-		if(pids[P_RET]==pids[P_OUTPUT]){
-			printf("ERROR: Output process died unexpectedly. Terminating.\n");
-			halt(2);
-
-		}else if(pids[P_RET]==pids[P_DECODE]){
+		if( pids[P_RET]==pids[P_OUTPUT] )
+			{ p_output(); }
+		else if(pids[P_RET]==pids[P_DECODE]){
+			char ss_buf[22]={'0',0,'0',0}; // contains start location
+			//local ss
+			//param plc state prefixc start cache_fn? pipefd pids
 			if(plc==++state.pos)
 				return(0);
 			if(state.pos<0)
 				state.pos=0;
 			if(plc>1)
-				printf("\e[2K\r%s\n",&pl[state.pos][plen]);
+				printf("\e[2K\r%s\n",&pl[state.pos][prefixc]);
 			clock_gettime(CLOCK_MONOTONIC,&start);
 			char* ss=ss_buf;
 			if(state.off>0){
@@ -279,6 +332,8 @@ int playback(char** pl,int plc,int plen){
 				cache_fn[6]='\0';
 			}
 		}else if(pids[P_RET]==pids[P_INPUT]){
+			//local key
+			//param pids ret state
 			switch(key=WEXITSTATUS(ret)){
 			case 'Q':
 				return(0);
@@ -293,6 +348,8 @@ int playback(char** pl,int plc,int plen){
 				exit((int)toupper(key));
 			}
 		}else if(pids[P_RET]==pids[P_REFRESH]){
+			//local now
+			//param pids start
 			clock_gettime(CLOCK_MONOTONIC,&now);
 			sprintf(&cache_fn[6],
 				"\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
@@ -311,7 +368,6 @@ int playback(char** pl,int plc,int plen){
 	}
 }
 
-
 int main(int argc, char *argv[]){
 	char** pl;
 	char* plmap;
@@ -326,8 +382,9 @@ int main(int argc, char *argv[]){
 	//TODO: reimplement playlist load
 	validate_playlist(argc-1,&argv[1],&plmap,&pl); //only valid when executed with args!
 
-	int plen;
-	dir_eval(plc,pl,&playlist_fn,&state_fn,&prefix,&plen);
+	int prefixc;
+	//TODO: subsume prefix into prefixc
+	dir_eval(plc,pl,&playlist_fn,&state_fn,&prefix,&prefixc);
 	printf("%s\n",prefix);
 
 	/*
@@ -339,6 +396,7 @@ int main(int argc, char *argv[]){
 */
 
 	// read state
+	/*
 	struct stat st;
 	if(!(0>stat(state_fn,&st) || 1<argc)){
 		validate(fd=open(state_fn,O_RDONLY),STATE_READ_OPEN);
@@ -346,13 +404,8 @@ int main(int argc, char *argv[]){
 		validate(close(fd),STATE_READ_CLOSE);
 		pos=state.pos-1;
 	}
+*/
+	playback(pl,plc,prefixc);
 
-	termios_state=malloc(sizeof(struct termios));
-	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
-	playback(pl,plc,plen);
-
-	for(int i=1;i<P_ENUM_COUNT;i++)
-		kill(pids[i],SIGINT);
-	printf("\e[2K\r    ]  " PKGVER "  [    \n");
-	return(0);
+	halt(0);
 }
