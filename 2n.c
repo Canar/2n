@@ -227,35 +227,36 @@ void p_output(){
 	halt(2);
 }
 
-void p_decode(char*** pl,int plc,statest *state, int prefixc, struct timespec *start,int* pipefd[2]){
+//void p_decode(char*** pl,int plc, int prefixc, struct timespec *start,int* pipefd[2]){
+void p_decode(char*** pl,int plc, int prefixc, struct timespec *start,int pipefd[2]){
 	// caching is a hack to tell ffmpeg to cache more of the input
 	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 	char ss_buf[22]={'0',0,'0',0}; // contains start location
 
 	//local ss
 	//param plc state prefixc start cache_fn? pipefd pids
-	if(plc==++state->pos)
+	if(plc==++state.pos)
 		halt(0);
-	if(state->pos<0)
-		state->pos=0;
+	if(state.pos<0)
+		state.pos=0;
 	if(plc>1)
-		printf("\e[2K\r%s\n",&((*pl)[state->pos][prefixc]));
+		printf("\e[2K\r%s\n",&((*pl)[state.pos][prefixc]));
 	clock_gettime(CLOCK_MONOTONIC,start);
 	char* ss=ss_buf;
-	if(state->off>0){
-		start->tv_sec-=state->off;
+	if(state.off>0){
+		start->tv_sec-=state.off;
 		ss=&ss_buf[2];
-		CK( snprintf(ss,20,"%d",state->off) );
-		state->off=0;
+		CK( snprintf(ss,20,"%d",state.off) );
+		state.off=0;
 	}
 	if(pids[P_REFRESH]>0)
 		kill(pids[P_REFRESH],SIGINT);
 	CK( pids[P_DECODE]=vfork() );
 	if(0==pids[P_DECODE]){
-		close((*pipefd)[0]);
-		dup2(*pipefd[1],1);
-		close(*pipefd[1]);
-		strcpy(&cache_fn[6],*pl[state->pos]);
+		close(pipefd[0]);
+		dup2(pipefd[1],1);
+		close(pipefd[1]);
+		strcpy(&cache_fn[6],*pl[state.pos]);
 		execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-loglevel","-8","-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
 			#ifdef DEBUG
 			"-report",
@@ -298,6 +299,9 @@ int playback(char** pl,int plc,int prefixc){
 		if( pids[P_RET]==pids[P_OUTPUT] )
 			{ p_output(); }
 		else if(pids[P_RET]==pids[P_DECODE]){
+			p_decode(&pl,plc,prefixc,&start,pipefd);
+			//void p_decode(char*** pl,int plc,statest *state, int prefixc, struct timespec *start,int* pipefd[2]){
+			/*
 			char ss_buf[22]={'0',0,'0',0}; // contains start location
 			//local ss
 			//param plc state prefixc start cache_fn? pipefd pids
@@ -330,7 +334,7 @@ int playback(char** pl,int plc,int prefixc){
 					(char*)0
 				);
 				cache_fn[6]='\0';
-			}
+			}*/
 		}else if(pids[P_RET]==pids[P_INPUT]){
 			//local key
 			//param pids ret state
