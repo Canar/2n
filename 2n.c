@@ -284,6 +284,22 @@ void p_input(int ret){
 	}
 }
 
+void p_refresh(struct timespec *start,int plc){
+	struct timespec now;
+	//local now
+	//param pids start
+	clock_gettime(CLOCK_MONOTONIC,&now);
+	printf("\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
+		(now.tv_sec-start->tv_sec)/60,
+		(now.tv_sec-start->tv_sec)%60
+	);
+	CK( pids[P_REFRESH]=fork() );
+	if(0==pids[P_REFRESH]){
+		usleep((start->tv_nsec+1E9-now.tv_nsec)/1E3);
+		exit(0);
+	}
+}
+
 
 int playback(char** pl,int plc,int prefixc){
 	termios_state=malloc(sizeof(struct termios));
@@ -317,36 +333,16 @@ int playback(char** pl,int plc,int prefixc){
 			{ p_output(); }
 		else if(pids[P_RET]==pids[P_DECODE])
 			{ p_decode(&pl,plc,prefixc,&start,pipefd); }
-		else if(pids[P_RET]==pids[P_INPUT]){
-			p_input(ret);
-			/*
-			//local key
-			//param pids ret state
-			switch(key=WEXITSTATUS(ret)){
-			case 'Q':
-				return(0);
-			case 'P':
-				state.pos-=2; //fallthru
-			case 'N':
-				kill(pids[P_DECODE],SIGINT);
-			}
-			CK( pids[P_INPUT]=fork() );
-			if(0==pids[P_INPUT]){
-				read(0,&key,1);
-				exit((int)toupper(key));
-			}
-			*/
-		}else if(pids[P_RET]==pids[P_REFRESH]){
+		else if(pids[P_RET]==pids[P_INPUT])
+			{ p_input(ret); } 
+		else if(pids[P_RET]==pids[P_REFRESH]){
 			//local now
 			//param pids start
 			clock_gettime(CLOCK_MONOTONIC,&now);
-			sprintf(&cache_fn[6],
-				"\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
+			printf("\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
 				(now.tv_sec-start.tv_sec)/60,
 				(now.tv_sec-start.tv_sec)%60
 			);
-			printf("%s",&cache_fn[6]);
-			cache_fn[6]='\0';
 			CK( pids[P_REFRESH]=fork() );
 			if(0==pids[P_REFRESH]){
 				usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
