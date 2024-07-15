@@ -73,16 +73,6 @@ typedef struct state_struct {
 	time_t off;
 } statest;
 
-/*
-dr_flac - small flac decoder - https://github.com/mackron/dr_libs
-pipe / exec dox - https://www.cs.uleth.ca/~holzmann/C/system/pipeforkexec.html
-
-Windows file change tracking
-	https://qualapps.blogspot.com/2010/05/understanding-readdirectorychangesw.html
-	https://qualapps.blogspot.com/2010/05/understanding-readdirectorychangesw_19.html
-	https://learn.microsoft.com/en-us/windows/win31/fileio/obtaining-directory-change-notifications?redirectedfrom=MSDN
- */
-
 static struct termios *termios_state=NULL; 
 enum PIDS {P_RET,P_REFRESH,P_INPUT,P_DECODE,P_OUTPUT,P_ENUM_COUNT};
 int pids[(int)P_ENUM_COUNT]={-3,-1,-2,-3,-4};
