@@ -22,6 +22,9 @@ tcc:
 debug:
 	$(CC) -g -o $(PROG) 2n.c
 
+warn:
+	$(CC) -Wall -o $(PROG) 2n.c
+
 waveout.exe:	waveout/$(WAVEOUT_CC)
 	$(MINGW_CPP) -o waveout.exe waveout/$(WAVEOUT_CC) -lwinmm
 

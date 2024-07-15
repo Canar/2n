@@ -200,7 +200,7 @@ void print_usage(){
 	 * --playlist -p [playlist_name] -  use non-default playlist
 	 * --relative -r - don't use realpath() to ensure absolute path [useless?]
 	 * --quiet -q - don't perform playback
-	 * --service -s - service mode
+	 * --service -e? - service mode (short cut conflicts with shuffle?)
 	 * 	changes some semantics, stops giving every-second updates
 	 * 	autodetected if stdin is closed?
 	 *
@@ -214,6 +214,7 @@ void print_usage(){
 	 *		8 - fatal
 	 *		0 - panic
 	 *		-8 - silent
+	 * --shuffle -s?
 	 */
 	printf("Unimplemented.\n");
 }
@@ -246,7 +247,7 @@ void p_decode(char*** pl,int plc, int prefixc, struct timespec *start,int pipefd
 	if(state.off>0){
 		start->tv_sec-=state.off;
 		ss=&ss_buf[2];
-		CK( snprintf(ss,20,"%d",state.off) );
+		CK( snprintf(ss,20,"%ld",state.off) );
 		state.off=0;
 	}
 	if(pids[P_REFRESH]>0)
@@ -289,7 +290,7 @@ void p_refresh(struct timespec *start,int plc){
 	//local now
 	//param pids start
 	clock_gettime(CLOCK_MONOTONIC,&now);
-	printf("\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
+	printf("\e[2K\r%d/%d %ld:%02ld > ",state.pos+1,plc,
 		(now.tv_sec-start->tv_sec)/60,
 		(now.tv_sec-start->tv_sec)%60
 	);
@@ -305,7 +306,7 @@ int playback(char** pl,int plc,int prefixc){
 	termios_state=malloc(sizeof(struct termios));
 	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
 
-	struct timespec start,now;
+	struct timespec start;
 
 	#ifndef DEBUG
 	close(2); //hide stderr
@@ -324,8 +325,6 @@ int playback(char** pl,int plc,int prefixc){
 	}
 
 	int ret;
-	char key;
-	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 
 	//TODO: refactor using poll()
 	while(1){
@@ -336,18 +335,7 @@ int playback(char** pl,int plc,int prefixc){
 		else if(pids[P_RET]==pids[P_INPUT])
 			{ p_input(ret); } 
 		else if(pids[P_RET]==pids[P_REFRESH]){
-			//local now
-			//param pids start
-			clock_gettime(CLOCK_MONOTONIC,&now);
-			printf("\e[2K\r%d/%d %d:%02d > ",state.pos+1,plc,
-				(now.tv_sec-start.tv_sec)/60,
-				(now.tv_sec-start.tv_sec)%60
-			);
-			CK( pids[P_REFRESH]=fork() );
-			if(0==pids[P_REFRESH]){
-				usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
-				exit(0);
-			}
+			p_refresh(&start,plc);
 		}
 		pids[P_RET] = pids[P_RET]<0 ? pids[P_RET]+1 : wait(&ret);
 	}
@@ -356,32 +344,31 @@ int playback(char** pl,int plc,int prefixc){
 int main(int argc, char *argv[]){
 	char** pl;
 	char* plmap;
-	int plc=argc-1;
 
-
-	//use realpath to get canonical path names of playlist
-	int fd;
-	int pllen=0;
-	char*playlist_fn,*state_fn,*prefix;
-
-	//TODO: reimplement playlist load
+	//TODO: reimplement playlist save/load
 	validate_playlist(argc-1,&argv[1],&plmap,&pl); //only valid when executed with args!
 
+	char*playlist_fn,*state_fn,*prefix;
 	int prefixc;
 	//TODO: subsume prefix into prefixc
-	dir_eval(plc,pl,&playlist_fn,&state_fn,&prefix,&prefixc);
+	dir_eval(argc-1,pl,&playlist_fn,&state_fn,&prefix,&prefixc);
 	printf("%s\n",prefix);
+	playback(pl,argc-1,prefixc);
+
+	halt(0);
+}
 
 	/*
+	 *
+	 * old main stuff
 -       struct stat st;
 -       if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
 -               printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate it.\n");
 -               goto quit;
 -       }
-*/
 
 	// read state
-	/*
+
 	struct stat st;
 	if(!(0>stat(state_fn,&st) || 1<argc)){
 		validate(fd=open(state_fn,O_RDONLY),STATE_READ_OPEN);
@@ -390,7 +377,3 @@ int main(int argc, char *argv[]){
 		pos=state.pos-1;
 	}
 */
-	playback(pl,plc,prefixc);
-
-	halt(0);
-}
