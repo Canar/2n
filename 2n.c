@@ -108,7 +108,8 @@ void validate(int retval,enum ERROR kind){
 
 int prefix_len(int max,int count,char* ary[]){
 	if(count<=1)
-		return(max);
+		return(0);
+		//return(max);
 	for(int j=0;j<max;j++)
 		for(int i=1;i<count;i++)
 			if(!(ary[0][j]==ary[i][j]))
@@ -213,25 +214,35 @@ int pipefd[2];
 
 statest state={.off=0,.pos=-1};
 
+void p_output_init(){
+	//output
+	CK( pipe(pipefd) );
+	CK( pids[P_OUTPUT]=vfork() );
+	if(0==pids[P_OUTPUT]){
+		close(pipefd[1]);
+		dup2(pipefd[0],0);
+		close(pipefd[0]);
+		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
+		//execlp("pw-cat","-v","-p","--channels="CHAN,"--format=f32","--rate="RATE,"-",(char*)0);
+		//execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0);
+	}
+}
+
 void p_output(){
 	printf("ERROR: Output process died unexpectedly. Terminating.\n");
 	halt(2);
 }
 
 //void p_decode(char*** pl,int plc, int prefixc, struct timespec *start,int* pipefd[2]){
-void p_decode(char*** pl,int plc, int prefixc, struct timespec *start,int pipefd[2]){
+void p_decode(char*** pl,int plc, int prefixc, struct timespec *start){
 	// caching is a hack to tell ffmpeg to cache more of the input
 	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 	char ss_buf[22]={'0',0,'0',0}; // contains start location
 
-	//local ss
-	//param plc state prefixc start cache_fn? pipefd pids
-	if(plc==++state.pos)
-		halt(0);
-	if(state.pos<0)
-		state.pos=0;
-	if(plc>1)
-		printf("\e[2K\r%s\n",&((*pl)[state.pos][prefixc]));
+	if(plc==++state.pos) halt(0);
+	if(state.pos<0) state.pos=0;
+
+	printf("\e[2K\r%s\n",&((*pl)[state.pos][prefixc]));
 	clock_gettime(CLOCK_MONOTONIC,start);
 	char* ss=ss_buf;
 	if(state.off>0){
@@ -247,7 +258,7 @@ void p_decode(char*** pl,int plc, int prefixc, struct timespec *start,int pipefd
 		close(pipefd[0]);
 		dup2(pipefd[1],1);
 		close(pipefd[1]);
-		strcpy(&cache_fn[6],*pl[state.pos]);
+		strcpy(&cache_fn[6],(*pl)[state.pos]);
 		execlp("ffmpeg","-hide_banner","-ss",ss,"-i",cache_fn,"-loglevel","-8","-af","volume=0.75","-ac","2","-ar","44100","-f","f32le","-",
 			#ifdef DEBUG
 			"-report",
@@ -293,35 +304,21 @@ void p_refresh(struct timespec *start,int plc){
 
 
 int playback(char** pl,int plc,int prefixc){
-	termios_state=malloc(sizeof(struct termios));
-	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
-
 	struct timespec start;
 
 	#ifndef DEBUG
 	close(2); //hide stderr
 	#endif
 
-	//output
-	CK( pipe(pipefd) );
-	CK( pids[P_OUTPUT]=vfork() );
-	if(0==pids[P_OUTPUT]){
-		close(pipefd[1]);
-		dup2(pipefd[0],0);
-		close(pipefd[0]);
-		execlp("pacat","-p","-v","--channels="CHAN,"--format="FRMT,"--rate="RATE,"--raw","--client-name="PKGVER,"--stream-name="STRM,(char*)0);
-		//execlp("pw-cat","-v","-p","--channels="CHAN,"--format=f32","--rate="RATE,"-",(char*)0);
-		//execlp("ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default",(char*)0);
-	}
-
-	int ret;
+	p_output_init();
 
 	//TODO: refactor using poll()
+	int ret;
 	while(1){
 		if( pids[P_RET]==pids[P_OUTPUT] )
 			{ p_output(); }
 		else if(pids[P_RET]==pids[P_DECODE])
-			{ p_decode(&pl,plc,prefixc,&start,pipefd); }
+			{ p_decode(&pl,plc,prefixc,&start); }
 		else if(pids[P_RET]==pids[P_INPUT])
 			{ p_input(ret); } 
 		else if(pids[P_RET]==pids[P_REFRESH]){
@@ -342,7 +339,11 @@ int main(int argc, char *argv[]){
 	int prefixc;
 	//TODO: subsume prefix into prefixc
 	dir_eval(argc-1,pl,&playlist_fn,&state_fn,&prefix,&prefixc);
-	printf("%s\n",prefix);
+	if(argc>2) printf("%s\n",prefix);
+
+	termios_state=malloc(sizeof(struct termios));
+	CK( tcgetattr(STDIN,termios_state) ); //save terminal state
+
 	playback(pl,argc-1,prefixc);
 
 	halt(0);

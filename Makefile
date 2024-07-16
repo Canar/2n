@@ -20,7 +20,7 @@ tcc:
 	tcc -o $(PROG) 2n.c
 
 debug:
-	$(CC) -g -o $(PROG) 2n.c
+	$(CC) -g -DDEBUG -o $(PROG) 2n.c
 
 warn:
 	$(CC) -Wall -o $(PROG) 2n.c

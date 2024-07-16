@@ -1,2 +1,6 @@
 - repair short file issue / file end issue
 - when locale isn't UTF-8, sending the cross as client name causes pacat to terminate - 20230824
+
+Possible improvements / approaches / techniques:
+dr_flac - small flac decoder - https://github.com/mackron/dr_libs
+pipe / exec dox - https://www.cs.uleth.ca/~holzmann/C/system/pipeforkexec.html
