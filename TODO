@@ -4,3 +4,12 @@
 Possible improvements / approaches / techniques:
 dr_flac - small flac decoder - https://github.com/mackron/dr_libs
 pipe / exec dox - https://www.cs.uleth.ca/~holzmann/C/system/pipeforkexec.html
+
+poll implementation
+ - write considering PIPE_BUF <limits.h>
+ - pipe2 with o_nonblock (saves fcntl call)
+ - fds:
+	audio playback, stdin
+		audio decode assumed to be always readable(?)
+	future: playlist change notif
+		windows uses callback to write inotify-style update?

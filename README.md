@@ -3,30 +3,40 @@
 *by Benjamin Cook*\
 <http://baryon.it>
 
+<sup>pronounced "tune"</sup>
+
 ## Abstract
 
-A minimalist, portable audio player written in C.\
+A minimalist, portable audio player written in GNU C.\
 Pipes audio from `ffmpeg` into a local raw player.\
-Tested on Linux and Windows but probably ports elsewhere.\
-`pacat` is default, `waveOut-write.exe` for Windows-MinGW.
-
+`pacat` is default, `[2b](http://github.com/Canar/2b)` provides MinGW support.\
 Plays a single, user-editable playlist gaplessly.\
 Remembers where it was when you quit.
 
-Name is pronounced "tune".
+## Platforms 
+
+`2n` is tested on the following platforms.
+
+ - Debian 12 Bookworm
+ - Windows 11 on QEMU KVM via MSYS/MinGW
+ - Android 11 on Termux
+
+WARNING: Windows requires a little hacking to make work.
 
 ## Usage
 
 Create a 2n playlist and play it:\
-`        2n file1 file2 ...`
+`$ 2n file1 file2 ...`
 	
 Continue playing last created playlist:\
-`        2n`
+`$ 2n`
 
+### Keyboard Controls
 Keystroke commands during playback:\
 **p**: previous track\
 **n**: next track\
-**q**: quit 2n
+**q**: quit 2n\
+**h**: print help
 
 ## Features and Configuration
 
@@ -49,31 +59,30 @@ Configuration is performed by editing `config.h` before building.\
 `2n` defines sample output format at compile-time via `config.h`.\
 `ln -sf config.platform.h config.h` to select your configuration.
 
-### Windows-MinGW
-
-`waveOut-write.exe` is like `pacat` for waveOut API on Windows-MinGW.\
-`DSound-write.exe` is like `pacat` for DSound API on Windows-MinGW.\
-`2n.c` must be edited before building to make these work.
-
 ## Known Issues
 
 - Timestamp is inaccurate.
 - Zero error-handling. If decoder errors, track is skipped.
 - Decoder process can underrun and cause an audible skip.
 - Output process terminates too early. (Short files won't play.)
-- Some .WAV files behave strangely.
 
 ## Planned Enhancements
 
 - Reload playlist when modified.
-- Proper Windows-MinGW build code.
 - Handle ffmpeg errors.
+- Replace fork() synchronization with select().
 
 ## Release Log
 0.1 - Initial private release.\
 0.2 - First git publication. `2022-06-25`\
-0.3a - Fixed Termux platform stuff. `2022-06-29`\
-0.2.1 - Added DEBUG ffmpeg -report switch `2022-11-13`\
-0.2.2 - DEBUG no longer closes STDERR `2023-08-24`\
-HEAD - Makefile improvements `2023-09-13`\
-HEAD - DirectSound shim `2024-06-07`
+0.2a - Fixed Termux platform stuff. `2022-06-29`\
+0.2.1 - Added DEBUG ffmpeg -report switch. `2022-11-13`\
+0.2.2 - DEBUG no longer closes STDERR. `2023-08-24`\
+0.2.3
+- Makefile improvements. `2023-09-13`\
+- `2024-07`
+   - modularized code
+   - added getopt_long() parsing
+   - improved error handling
+   - solved .wav, etc. initial audio glitch
+ 

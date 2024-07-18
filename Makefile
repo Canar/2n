@@ -1,7 +1,6 @@
 CC=gcc
 PROG=2n
 MINGW_CPP=x86_64-w64-mingw32-gcc
-WAVEOUT_CC=waveout.0.c
 PREFIX=/usr/local/bin
 SHELL=/bin/bash
 FF=$(shell which ffmpeg || echo /usr/bin/does_not_exist )
@@ -20,7 +19,7 @@ tcc:
 	tcc -o $(PROG) 2n.c
 
 debug:
-	$(CC) -g -DDEBUG -o $(PROG) 2n.c
+	$(CC) -g -DDEBUG -fsanitize=address,undefined -o $(PROG) 2n.c
 
 warn:
 	$(CC) -Wall -o $(PROG) 2n.c
