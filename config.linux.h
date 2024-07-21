@@ -7,7 +7,7 @@
 #define VERMIN     2
 #define VERPT      3
 #define VER        STR(VERMAJ) "." STR(VERMIN) "." STR(VERPT)
-//#define VERTXT     "✝ v" VER
+#define VERTXT     "✝ v" VER
 #define PKGVER     PKG " " VERTXT
 
 #define PLAYLISTFN "playlist"
@@ -28,5 +28,5 @@
 #define FRMT        "float" _FMT
 #define STRM	   CHAN "ch " FRMT " @ " RATE "Hz"
 //#define VERTXT     "✝ v" VER
-#define VERTXT     " v" VER
-#define PKGVER     PKG " " VERTXT
+//#define VERTXT     " v" VER
+//#define PKGVER     PKG " " VERTXT
