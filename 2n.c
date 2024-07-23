@@ -19,10 +19,12 @@
 #include <unistd.h>
 
 #define KBUSAGE "Keyboard Controls\n\
+  h  print help\n\
   n  next track\n\
   p  previous track\n\
+  r  restart current track\n\
   q  quit\n\
-  h  print help\n"  
+  Q  quit after current track (TODO)\n"
 
 #define USAGE PKG": A minimal gapless music player.\n\
 \n\
@@ -58,6 +60,7 @@ statest state={.off=0,.pos=-1};
 struct termios *termios_state=NULL; 
 struct timespec start;
 int pipefd[2];
+static int rseed=0;
 
 #define CK(x) vck(x,__FILE__,__LINE__,NULL)
 void vck(int,char*,int,char*);
@@ -90,7 +93,7 @@ int prefix_len(int prefixc,int count,char* ary[]){
 				return(j);
 	return(count);
 }
-void validate_playlist(int count,char** inv,char** outv,char*** plv){ //evaluates full path of files in inv array, allocates to outv
+size_t validate_playlist(int count,char** inv,char** outv,char*** plv){ //evaluates full path of files in inv array, allocates to outv
 	char* rp[count];
 	int rpc[count];//chars in realpath path of index
 	size_t pc=0;
@@ -98,8 +101,12 @@ void validate_playlist(int count,char** inv,char** outv,char*** plv){ //evaluate
 	//get realpath output
 	for(int i=0;i<count;i++){
 		rp[i]=realpath(inv[i],NULL);
-		rpc[i]=strlen(rp[i]);
-		pc+=rpc[i]+1;
+		if(rp[i]){
+			rpc[i]=strlen(rp[i]);
+			pc+=rpc[i]+1;
+		}else{
+			return(0);
+		}
 	}
 
 	//alloc a contiguous block
@@ -114,6 +121,7 @@ void validate_playlist(int count,char** inv,char** outv,char*** plv){ //evaluate
 		free(rp[i]);
 		pc+=rpc[i]+1;
 	}
+	return(pc);
 }
 void dir_eval(char** playlist_fn, char** state_fn){ //evaluates config dirs, ensures they exist
 	//check HOME dir
@@ -234,17 +242,16 @@ void p_decode(char*** pl,int plc, int prefixc){
 void p_input(int ret){
 	char key;
 	switch(key=WEXITSTATUS(ret)){
-	case 'Q':
-		halt(0);
-	case 'P':
-		state.pos-=2; //fallthru
-	case 'N':
-		kill(pids[P_DECODE],SIGINT);
+	case 'h': case 'H': printf( "\n" KBUSAGE ); break;
+	case 'q': case 'Q': halt(0);
+	case 'p': case 'P': state.pos--; //fallthru
+	case 'r': case 'R': state.pos--; //fallthru
+	case 'n': case 'N': kill(pids[P_DECODE],SIGINT);
 	}
 	CK( pids[P_INPUT]=fork() );
 	if(0==pids[P_INPUT]){
 		read(0,&key,1);
-		exit((int)toupper(key));
+		exit(key);
 	}
 }
 void p_refresh(int plc){
@@ -302,15 +309,19 @@ void save_state(char* state_fn){
 	CK( write(fd,&state,sizeof(statest)) );
 	CK( close(fd) );
 }
-int main(int argc, char *argv[]){
-	termios_state=malloc(sizeof(struct termios));
-	CK( tcgetattr(STDIN,termios_state) );
-
-	char** pl;
-	char* plmap;
-	int plc=argc-1;
-
-	static int shuffle_flag=0;
+void shuffle(int c,char** v){
+	if(!rseed){
+		rseed=time(NULL);
+		srandom(rseed);
+	}
+	for(int i=0;i<(c-1);i++){ //shuffle
+		int j=(random()%(c-i))+i;
+		char* tmp=v[i];
+		v[i]=v[j];
+		v[j]=tmp;
+	}
+}
+void parse_options(int argc,char**argv,int*shuffle_flag){
 	static struct option long_options[] = {
 		{"help",    no_argument, 0, 'h' },
 		{"shuffle", no_argument, 0, 's' },
@@ -323,11 +334,9 @@ int main(int argc, char *argv[]){
 	while ((opt = getopt_long (argc, argv, "ahs",long_options,NULL)) != -1){
 		switch(opt){
 		case 's':
-			srandom(time(NULL));
-			shuffle_flag=!0;
+			(*shuffle_flag)=!0;
 			break;
-      case '?':
-			printf("\n"); //fallthru
+      case '?': printf("\n"); //fallthru
 		case 'h': print_usage(); //terminates
 		case '\0': break;
 		default:
@@ -335,29 +344,44 @@ int main(int argc, char *argv[]){
 			print_usage();
 		}
 	}
-	if(optind<argc){
-		//printf("file args present\n");
-		validate_playlist(argc-optind,&argv[optind],&plmap,&pl); //only valid when executed with args!
+}
+int main(int argc, char **argv){
+	termios_state=malloc(sizeof(struct termios));
+	CK( tcgetattr(STDIN,termios_state) );
 
-	}else{
+	int shuffle_flag=0;
+	parse_options(argc,argv,&shuffle_flag);
+
+	char*playlist_fn,*state_fn,*prefix;
+	dir_eval(&playlist_fn,&state_fn);
+	
+	char** pl;
+	char* plmap;
+	size_t plmapc;
+
+	if(optind<argc){ //file args present
+		if(shuffle_flag) shuffle(argc-optind,&argv[optind]);
+		plmapc=validate_playlist(argc-optind,&argv[optind],&plmap,&pl); //only valid when executed with args!
+		if(plmapc<1){
+			printf("ERROR: Invalid file specified.\n");
+			print_usage();
+		}
+	}else{ //no file args
 		struct stat st;
-		//if( ((0>stat(playlist_fn,&st)) && (2>argc)) || (1>st.st_size)){
-			printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate one.\n");
-			halt(0);
-		//}
-		printf("file args absent\n");
+		if((0>stat(playlist_fn,&st)) || (1>st.st_size)){
+			printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate one.\n\n");
+			print_usage();
+		}
 		//if(argc<2) load_state(state_fn);
 		halt(0);
 		//TODO: reimplement playlist load
 	}
 
 	int prefixc;
-	char*playlist_fn,*state_fn,*prefix;
-	dir_eval(&playlist_fn,&state_fn);
-	prefix_eval(plc,pl,&prefix,&prefixc);
+	prefix_eval(argc-optind,pl,&prefix,&prefixc);
 	printf("%s\n",prefix);
 
-	playback(pl,plc,prefixc);
+	playback(pl,argc-optind,prefixc);
 	save_state(state_fn);
 
 	halt(0);

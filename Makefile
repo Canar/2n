@@ -19,7 +19,7 @@ tcc:
 	tcc -o $(PROG) 2n.c
 
 debug:
-	$(CC) -g -DDEBUG -fsanitize=address,undefined -o $(PROG) 2n.c
+	$(CC) -Wall -g -DDEBUG -fsanitize=address,undefined -o $(PROG) 2n.c
 
 warn:
 	$(CC) -Wall -o $(PROG) 2n.c

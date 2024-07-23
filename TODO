@@ -13,3 +13,5 @@ poll implementation
 		audio decode assumed to be always readable(?)
 	future: playlist change notif
 		windows uses callback to write inotify-style update?
+
+traverse dir structure when given dir
