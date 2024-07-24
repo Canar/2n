@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -283,7 +282,7 @@ void p_input(int ret){
 }
 void p_refresh(int plc){
 	int t=offsec();
-	printf("\e[2K\r%d/%d %ld:%02ld > ",state.pos+1,plc,t/60,t%60);
+	printf("\e[2K\r%lu/%d %d:%02d > ",state.pos+1,plc,t/60,t%60);
 	CK( pids[P_REFRESH]=fork() );
 	if(0==pids[P_REFRESH]){
 		usleep(1000000);
@@ -417,8 +416,5 @@ int main(int argc, char **argv){
 	prefix_eval(plc,pl,&prefix,&prefixc);
 	if(prefixc>0)printf("%s\n",prefix);
 
-	playback(pl,plc,prefixc);
-	save_state(state_fn);
-
-	halt(0);
+	playback(pl,plc,prefixc); //terminates
 }

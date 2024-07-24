@@ -1,11 +1,11 @@
-- repair short file issue / file end issue
+- repair short file issue / file end issue (fixed by select() port)
 - when locale isn't UTF-8, sending the cross as client name causes pacat to terminate - 20230824
 
 Possible improvements / approaches / techniques:
 dr_flac - small flac decoder - https://github.com/mackron/dr_libs
 pipe / exec dox - https://www.cs.uleth.ca/~holzmann/C/system/pipeforkexec.html
 
-poll implementation
+select() implementation
  - write considering PIPE_BUF <limits.h>
  - pipe2 with o_nonblock (saves fcntl call)
  - fds:
@@ -15,7 +15,13 @@ poll implementation
 		windows uses callback to write inotify-style update?
 
 traverse dir structure when given dir
+ - POSIX regex?
 
 https://github.com/csBlueChip/stuff - stuff 
 perl -e '$TIOCSTI = 0x5412; $tty = "/dev/pts/2"; $char = "p"; open($fh, ">", $tty); ioctl($fh, $TIOCSTI, $char)'
 
+https://github.com/win32ports/sys_wait_h - fix windows?
+
+Windows select()
+  https://comp.os.ms-windows.programmer.win32.narkive.com/oLyNbGSV/win32-poll-equivalent
+  #include <winsock2.h> / -l ws2_32

@@ -17,10 +17,9 @@ Remembers where it was when you quit.
 `2n` is tested on the following platforms.
 
  - Debian 12 Bookworm
- - Windows 11 on QEMU KVM via MSYS/MinGW
  - Android 11 on Termux
 
-WARNING: Windows requires a little hacking to make work.
+Windows 11 support is planned. (See TODO.)
 
 ## Usage
 
