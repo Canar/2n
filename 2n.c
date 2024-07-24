@@ -207,6 +207,11 @@ void save_state(){
 	CK( close(fd) );
 	*/
 }
+int offsec(){
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC,&now);
+	return(now.tv_sec-start.tv_sec);
+}
 void p_output_init(){
 	CK( pipe(pipefd) );
 	CK( pids[P_OUTPUT]=vfork() );
@@ -238,7 +243,6 @@ void p_decode(char*** pl,int plc, int prefixc){
 		CK( snprintf(ss,20,"%ld",state.off) );
 		state.off=0;
 	}
-	printf("%s \n",ss);
 	if(pids[P_REFRESH]>0)
 		kill(pids[P_REFRESH],SIGINT);
 	CK( pids[P_DECODE]=vfork() );
@@ -260,8 +264,11 @@ void p_decode(char*** pl,int plc, int prefixc){
 void p_input(int ret){
 	char key;
 	switch(key=WEXITSTATUS(ret)){
+	case 'q': case 'Q': 
+		state.off=offsec();
+		save_state();
+		halt(0);
 	case 'h': case 'H': printf( "\n" KBUSAGE ); break;
-	case 'q': case 'Q': save_state(); halt(0);
 	case 'p': case 'P': state.pos--; //fallthru
 	case 'r': case 'R': state.pos--; //fallthru
 	case 'n': case 'N': 
@@ -275,16 +282,11 @@ void p_input(int ret){
 	}
 }
 void p_refresh(int plc){
-	struct timespec now;
-	clock_gettime(CLOCK_MONOTONIC,&now);
-	printf("\e[2K\r%d/%d %ld:%02ld > ",state.pos+1,plc,
-		(now.tv_sec-start.tv_sec)/60,
-		(now.tv_sec-start.tv_sec)%60
-	);
-	//state.off=now.tv_sec-start.tv_sec;
+	int t=offsec();
+	printf("\e[2K\r%d/%d %ld:%02ld > ",state.pos+1,plc,t/60,t%60);
 	CK( pids[P_REFRESH]=fork() );
 	if(0==pids[P_REFRESH]){
-		usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
+		usleep(1000000);
 		exit(0);
 	}
 }
@@ -298,7 +300,6 @@ int playback(char** pl,int plc,int prefixc){
 	//TODO: refactor using poll()
 	int ret=0;
 	while(1){
-		//printf("%d\n",pids[P_RET]);
 		if( pids[P_RET]==pids[P_OUTPUT] )
 			{ p_output(); }
 		else if(pids[P_RET]==pids[P_DECODE])
