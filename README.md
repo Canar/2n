@@ -1,8 +1,8 @@
 # 2n
 
-<sub>pronounced "tune"</sub>\
 *by Benjamin Cook*\
-<http://baryon.it>
+<http://baryon.it>\
+<sup>pronounced "tune"</sup>
 
 
 ## Abstract
