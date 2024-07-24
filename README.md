@@ -70,13 +70,14 @@ Configuration is performed by editing `config.h` before building.\
 - Reload playlist when modified.
 - Handle ffmpeg errors.
 - Replace fork() synchronization with select().
+- Traverse directory when passed as parameter.
 
 ## Release Log
 0.1 - Initial private release.\
 0.2 - First git publication. `2022-06-25`\
 0.2a - Fixed Termux platform stuff. `2022-06-29`\
 0.2.1 - Added DEBUG ffmpeg -report switch. `2022-11-13`\
-0.2.2 - DEBUG no longer closes STDERR. `2023-08-24`\
+0.2.2 - DEBUG no longer closes STDERR. `2023-08-24`
 
 0.2.3a 
 - `2023-09-13` 
