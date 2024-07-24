@@ -15,3 +15,7 @@ poll implementation
 		windows uses callback to write inotify-style update?
 
 traverse dir structure when given dir
+
+https://github.com/csBlueChip/stuff - stuff 
+perl -e '$TIOCSTI = 0x5412; $tty = "/dev/pts/2"; $char = "p"; open($fh, ">", $tty); ioctl($fh, $TIOCSTI, $char)'
+

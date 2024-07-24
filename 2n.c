@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,8 +49,10 @@ PCM transport format: "STRM"\n\
 //#define OUTEXEC "pw-cat","-v","-p","--channels="CHAN,"--format=f32","--rate="RATE,"-"
 //#define OUTEXEC "ffmpeg","-hide_banner","-ac","2","-ar","44100","-f","f32le","-i","-","-f","pulse","default"
 
+#define PERM 0775
+
 typedef struct state_struct {
-	int pos;
+	size_t pos;
 	time_t off;
 } statest;
 
@@ -57,10 +60,11 @@ enum PIDS {P_RET,P_REFRESH,P_INPUT,P_DECODE,P_OUTPUT,P_ENUM_COUNT};
 int pids[(int)P_ENUM_COUNT]={-3,-1,-2,-3,-4};
 
 statest state={.off=0,.pos=-1};
-struct termios *termios_state=NULL; 
+struct termios termios_state; 
 struct timespec start;
 int pipefd[2];
-static int rseed=0;
+int rseed=0;
+char*playlist_fn,*state_fn;
 
 #define CK(x) vck(x,__FILE__,__LINE__,NULL)
 void vck(int,char*,int,char*);
@@ -70,19 +74,26 @@ void halt(int x){
 		if(pids[i]>0)
 			kill(pids[i],SIGINT);
 
-	if(termios_state!=NULL)
-		CK( tcsetattr(STDIN,TCSANOW,termios_state) );
+	CK( tcsetattr(STDIN,TCSANOW,&termios_state) );
 
 	if(0==x){
 		printf("\e[2K\r    ]  " PKGVER "  [    \n");
 	}
 	exit(x);
 }
-void vck(int retval,char* file,int line,char* msg){
+void vck(int retval,char* file,int line,char* msg){ //unhandled
 	if(retval>=0)
 		return;
 	fprintf(stderr, "Error in %s, line %d. Value: %d. %s\n",file,line,retval,msg);
 	halt(1);
+}
+void prerror(int test,char* format,...){ //terminal errors
+	if(test>=0)return;
+	va_list args;
+	va_start(args, format);
+	vfprintf(stdout,format,args);
+	va_end(args);
+	halt(abs(test));
 }
 int prefix_len(int prefixc,int count,char* ary[]){
 	if(count<=1)
@@ -104,7 +115,7 @@ size_t validate_playlist(int count,char** inv,char** outv,char*** plv){ //evalua
 		if(rp[i]){
 			rpc[i]=strlen(rp[i]);
 			pc+=rpc[i]+1;
-		}else{
+		}else{ //realpath fails
 			return(0);
 		}
 	}
@@ -126,10 +137,7 @@ size_t validate_playlist(int count,char** inv,char** outv,char*** plv){ //evalua
 void dir_eval(char** playlist_fn, char** state_fn){ //evaluates config dirs, ensures they exist
 	//check HOME dir
 	char* home_dir=getenv("HOME");
-	if(NULL==home_dir){
-		printf("ERROR: $HOME unset. Environment appears faulty.\n");
-		halt(1);
-	}
+	if(home_dir==NULL) prerror(-1,"ERROR: $HOME unset. Environment appears faulty.\n");
 
 	//make config dir CFGDIR
 	int cfg_dir_len=strlen(home_dir)+strlen(CFGDIR)+1;
@@ -137,12 +145,7 @@ void dir_eval(char** playlist_fn, char** state_fn){ //evaluates config dirs, ens
 	strcpy(cfg_dir,home_dir);
 	strcat(cfg_dir,CFGDIR);
 	int ret=mkdir(cfg_dir,0775);
-	if(-1==ret){
-		if(EEXIST!=errno){
-			printf("ERROR: %d in mkdir()\n",errno);
-			halt(1);
-		}
-	}
+	if((-1==ret)&&(EEXIST != errno)) prerror(-100,"ERROR: %d in mkdir()\n",errno);
 
 	//define playlist and state filenames
 	*playlist_fn = malloc(cfg_dir_len+strlen(PLAYLISTFN));
@@ -189,6 +192,21 @@ void print_usage(){
 	printf( USAGE );
 	halt(0);
 }
+void write_buffer(char*fn,int c,char* v){
+	int fd;
+	CK( fd=open(fn,O_WRONLY|O_CREAT|O_TRUNC,PERM) );
+	CK( write(fd,v,c) );
+	CK( close(fd) );
+}
+void save_state(){
+	write_buffer(state_fn,sizeof(statest),(char*)&state);
+	/*
+	int fd;
+	CK( fd=open(state_fn,O_WRONLY|O_CREAT|O_TRUNC,PERM) );
+	CK( write(fd,&state,sizeof(statest)) );
+	CK( close(fd) );
+	*/
+}
 void p_output_init(){
 	CK( pipe(pipefd) );
 	CK( pids[P_OUTPUT]=vfork() );
@@ -200,8 +218,7 @@ void p_output_init(){
 	}
 }
 void p_output(){
-	printf("ERROR: Output process died unexpectedly. Terminating.\n");
-	halt(2);
+	prerror(-2,"ERROR: Output process died unexpectedly. Terminating.\n");
 }
 void p_decode(char*** pl,int plc, int prefixc){
 	// caching is a hack to tell ffmpeg to cache more of the input
@@ -210,7 +227,7 @@ void p_decode(char*** pl,int plc, int prefixc){
 
 	if(plc==++state.pos) halt(0);
 	if(state.pos<0) state.pos=0;
-	state.off=0;
+	//state.off=0;
 
 	printf("\e[2K\r%s\n",&((*pl)[state.pos][prefixc]));
 	clock_gettime(CLOCK_MONOTONIC,&start);
@@ -218,9 +235,11 @@ void p_decode(char*** pl,int plc, int prefixc){
 	if(state.off>0){
 		start.tv_sec-=state.off;
 		ss=&ss_buf[2];
+		printf("%ld",state.off);
 		CK( snprintf(ss,20,"%ld",state.off) );
 		state.off=0;
 	}
+	printf("%s \n",ss);
 	if(pids[P_REFRESH]>0)
 		kill(pids[P_REFRESH],SIGINT);
 	CK( pids[P_DECODE]=vfork() );
@@ -243,10 +262,12 @@ void p_input(int ret){
 	char key;
 	switch(key=WEXITSTATUS(ret)){
 	case 'h': case 'H': printf( "\n" KBUSAGE ); break;
-	case 'q': case 'Q': halt(0);
+	case 'q': case 'Q': save_state(); halt(0);
 	case 'p': case 'P': state.pos--; //fallthru
 	case 'r': case 'R': state.pos--; //fallthru
-	case 'n': case 'N': kill(pids[P_DECODE],SIGINT);
+	case 'n': case 'N': 
+		state.off=0;
+		kill(pids[P_DECODE],SIGINT);
 	}
 	CK( pids[P_INPUT]=fork() );
 	if(0==pids[P_INPUT]){
@@ -261,7 +282,7 @@ void p_refresh(int plc){
 		(now.tv_sec-start.tv_sec)/60,
 		(now.tv_sec-start.tv_sec)%60
 	);
-	state.off=now.tv_sec-start.tv_sec;
+	//state.off=now.tv_sec-start.tv_sec;
 	CK( pids[P_REFRESH]=fork() );
 	if(0==pids[P_REFRESH]){
 		usleep((start.tv_nsec+1E9-now.tv_nsec)/1E3);
@@ -291,29 +312,39 @@ int playback(char** pl,int plc,int prefixc){
 		pids[P_RET] = pids[P_RET]<0 ? pids[P_RET]+1 : wait(&ret);
 	}
 }
-void load_state(char* state_fn){ //loads state from state_fn or initializes
+void load_state(){ //loads state from state_fn or initializes
 	struct stat st;
-	if(0>stat(state_fn,&st)){
+	int ret=stat(state_fn,&st);
+	if(0>=ret){
 		int fd;
 		CK( fd=open(state_fn,O_RDONLY) );
 		CK( read(fd,&state,sizeof(statest))-sizeof(statest) );
 		CK( close(fd) );
+		state.pos--;
 	}else{
 		state.off=0;
 		state.pos=-1;
 	}
 }
-void save_state(char* state_fn){
+void read_buffer(char*fn,size_t*c,char**v){
+	struct stat st;
 	int fd;
-	CK( fd=open(state_fn,O_WRONLY|O_CREAT|O_TRUNC,0775) );
-	CK( write(fd,&state,sizeof(statest)) );
+	CK( stat(fn,&st) );
+	(*c)=st.st_size;
+	(*v)=malloc(*c);
+	CK( fd=open(fn,O_RDONLY) );
+	CK( read(fd,(*v),(*c)) );
 	CK( close(fd) );
 }
+/* void load_state(char*fn){
+	size_t c;
+	char* v;
+	read_buffer(fn,&c,&v);
+	memcpy(&state,v,sizeof(statest));
+	free(v);
+} */
 void shuffle(int c,char** v){
-	if(!rseed){
-		rseed=time(NULL);
-		srandom(rseed);
-	}
+	if(!rseed)srandom(rseed=time(NULL));
 	for(int i=0;i<(c-1);i++){ //shuffle
 		int j=(random()%(c-i))+i;
 		char* tmp=v[i];
@@ -345,43 +376,48 @@ void parse_options(int argc,char**argv,int*shuffle_flag){
 		}
 	}
 }
+void partition_buffer(size_t bc,char*bv,int*sc,char***sv){ //deserializes saved playlist
+	(*sc)=0;
+	for(int i=1;i<bc;i++)
+		if(0==bv[i])
+			(*sc)++;
+
+	(*sv)=malloc((*sc)*sizeof(char*));
+	int j=1;
+	(*sv)[0]=&bv[0];
+	for(int i=1; (i<bc) && (j<(*sc)) ;i++)
+		if(0==bv[i])
+			(*sv)[j++]=&bv[i+1];
+}
 int main(int argc, char **argv){
-	termios_state=malloc(sizeof(struct termios));
-	CK( tcgetattr(STDIN,termios_state) );
+	CK( tcgetattr(STDIN,&termios_state) );
 
 	int shuffle_flag=0;
 	parse_options(argc,argv,&shuffle_flag);
-
-	char*playlist_fn,*state_fn,*prefix;
 	dir_eval(&playlist_fn,&state_fn);
 	
 	char** pl;
-	char* plmap;
+	int plc=argc-optind,prefixc;
+	char*plmap,*prefix;
 	size_t plmapc;
 
 	if(optind<argc){ //file args present
 		if(shuffle_flag) shuffle(argc-optind,&argv[optind]);
-		plmapc=validate_playlist(argc-optind,&argv[optind],&plmap,&pl); //only valid when executed with args!
-		if(plmapc<1){
-			printf("ERROR: Invalid file specified.\n");
-			print_usage();
-		}
+		plmapc=validate_playlist(argc-optind,&argv[optind],&plmap,&pl);
+		prerror(plmapc-1,"ERROR: Invalid file specified.\n");
+		write_buffer(playlist_fn,plmapc,plmap);
 	}else{ //no file args
 		struct stat st;
-		if((0>stat(playlist_fn,&st)) || (1>st.st_size)){
-			printf("ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate one.\n\n");
-			print_usage();
-		}
-		//if(argc<2) load_state(state_fn);
-		halt(0);
-		//TODO: reimplement playlist load
+		if((0>stat(playlist_fn,&st)) || (1>st.st_size))
+			prerror(-1,"ERROR: Playlist is empty. Run " PKG " with a list of files as argument to generate one.\n");
+		read_buffer(playlist_fn,&plmapc,&plmap);
+		partition_buffer(plmapc,plmap,&plc,&pl);
+		load_state();
 	}
+	prefix_eval(plc,pl,&prefix,&prefixc);
+	if(prefixc>0)printf("%s\n",prefix);
 
-	int prefixc;
-	prefix_eval(argc-optind,pl,&prefix,&prefixc);
-	printf("%s\n",prefix);
-
-	playback(pl,argc-optind,prefixc);
+	playback(pl,plc,prefixc);
 	save_state(state_fn);
 
 	halt(0);
