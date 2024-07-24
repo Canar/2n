@@ -235,7 +235,6 @@ void p_decode(char*** pl,int plc, int prefixc){
 	if(state.off>0){
 		start.tv_sec-=state.off;
 		ss=&ss_buf[2];
-		printf("%ld",state.off);
 		CK( snprintf(ss,20,"%ld",state.off) );
 		state.off=0;
 	}

@@ -8,8 +8,7 @@
 ## Abstract
 
 A minimalist, portable audio player written in GNU C.\
-Pipes audio from `ffmpeg` into a local raw player.\
-`pacat` is default, `[2b](http://github.com/Canar/2b)` provides MinGW support.\
+Pipes audio from `ffmpeg` into a local raw player like `pacat`.\
 Plays a single, user-editable playlist gaplessly.\
 Remembers where it was when you quit.
 
