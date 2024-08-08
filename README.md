@@ -77,8 +77,7 @@ Configuration is performed by editing `config.h` before building.\
 0.2a - Fixed Termux platform stuff. `2022-06-29`\
 0.2.1 - Added DEBUG ffmpeg -report switch. `2022-11-13`\
 0.2.2 - DEBUG no longer closes STDERR. `2023-08-24`
-
-0.2.3a 
+0.2.3
 - `2023-09-13` 
     - Makefile improvements
 - `2024-07-23`
@@ -89,4 +88,7 @@ Configuration is performed by editing `config.h` before building.\
     - shuffle play
 - `2024-07-24`
     - notes on select() implementation
+- `2024-08-08`
+    - moved various config.\*.h files to platform/
+    - finalized 0.2.3
  
