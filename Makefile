@@ -13,7 +13,7 @@ $(FF):
 
 config.h:	config.linux.h
 	echo Defaulting to Linux config. Symlink a different config for other platforms.
-	ln -s config.linux.h config.h
+	ln -s platform/config.linux.h config.h
 
 tcc:
 	tcc -o $(PROG) 2n.c

@@ -86,4 +86,7 @@ Configuration is performed by editing `config.h` before building.\
     - added getopt_long() parsing
     - improved error handling
     - solved .wav, etc. initial audio glitch
+    - shuffle play
+- `2024-07-24`
+    - notes on select() implementation
  
