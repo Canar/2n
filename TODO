@@ -1,3 +1,5 @@
+TODO:
+
 - repair short file issue / file end issue (fixed by select() port)
 - when locale isn't UTF-8, sending the cross as client name causes pacat to terminate - 20230824
 
@@ -25,3 +27,12 @@ https://github.com/win32ports/sys_wait_h - fix windows?
 Windows select()
   https://comp.os.ms-windows.programmer.win32.narkive.com/oLyNbGSV/win32-poll-equivalent
   #include <winsock2.h> / -l ws2_32
+
+NOTES:
+
+Modularization structure:
+
+core: shared by all/most platforms, needed by platform
+platform: platform-specific code
+  - fork(), termios, windows, etc.
+2n: not needed by platform.

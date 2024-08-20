@@ -91,4 +91,5 @@ Configuration is performed by editing `config.h` before building.\
 - `2024-08-08`
     - moved various config.\*.h files to platform/
     - finalized 0.2.3
+0.2.4 - poll() implementation. `2024-08-08`
  
