@@ -76,7 +76,7 @@ Configuration is performed by editing `config.h` before building.\
 0.2 - First git publication. `2022-06-25`\
 0.2a - Fixed Termux platform stuff. `2022-06-29`\
 0.2.1 - Added DEBUG ffmpeg -report switch. `2022-11-13`\
-0.2.2 - DEBUG no longer closes STDERR. `2023-08-24`
+0.2.2 - DEBUG no longer closes STDERR. `2023-08-24`\
 0.2.3
 - `2023-09-13` 
     - Makefile improvements
@@ -90,6 +90,7 @@ Configuration is performed by editing `config.h` before building.\
     - notes on select() implementation
 - `2024-08-08`
     - moved various config.\*.h files to platform/
-    - finalized 0.2.3
-0.2.4 - poll() implementation. `2024-08-08`
+    - finalized 0.2.3\
+0.2.4a1 - modularized file structure for porting `2024-08-20`\
+0.3 - unreleased - poll() implementation. `2024-08-08`
  
