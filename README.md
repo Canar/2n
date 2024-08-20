@@ -92,6 +92,6 @@ Configuration is performed by editing `config.h` before building.\
     - moved various config.\*.h files to platform/
     - finalized 0.2.3
 
-0.2.4a1 - modularized file structure for porting `2024-08-20`\
-0.3 - unreleased - poll() implementation. `2024-08-08`
+0.2.4a1 - Modularized file structure for porting. Ill-tested as an intermediary step, use 0.2.3 for now. `2024-08-20`\
+0.3 - unreleased - poll() implementation. `2024-08-08 ->`
  
