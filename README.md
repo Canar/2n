@@ -93,6 +93,6 @@ Configuration is performed by editing `config.h` before building.\
     - finalized 0.2.3
 
 0.2.4a1 - Modularized file structure for porting. Ill-tested as an intermediary step, use 0.2.3 for now. `2024-08-20`\
-0.2.4 - 0.2.4 is quite well-tested now. `2025-02-18`\
+0.2.4 - 0.2.4 is quite well-tested now. Makefile improvements. `2025-02-18`\
 0.3 - unreleased - poll() implementation. `2024-08-08 -> i am lazy`
  
