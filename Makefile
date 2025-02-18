@@ -6,12 +6,13 @@ SHELL=/bin/bash
 FF=$(shell which ffmpeg || echo /usr/bin/does_not_exist )
 MODULES=2n core fork
 OBJECTS=$(addsuffix .o,$(MODULES))
+CLEANS=.stamp.config-check $(OBJECTS)
 
-$(PROG):	$(OBJECTS) Makefile config.h platform/config.linux.h $(FF)
+$(PROG):	Makefile config.h $(CLEANS) $(FF)
 	$(CC) $(CFLAGS) -o $(PROG) $(OBJECTS)
 
 clean:
-	rm $(OBJECTS)
+	rm -f $(CLEANS) $(PROG)
 
 %.o : %.c
 	$(CC) $(CFLAGS) $< -c
@@ -20,8 +21,12 @@ $(FF):
 	@echo Warning: FFMPEG executable not found. 2n will build but not function.
 
 config.h:	platform/config.linux.h
+	[ -L config.h ] && rm config.h	
 	echo Defaulting to Linux config. Symlink a different config for other platforms.
 	ln -s platform/config.linux.h config.h
+
+.stamp.config-check:
+	[ -f config.h ] && touch .stamp.config-check
 
 #tcc:
 #	tcc -o $(PROG) 2n.c
