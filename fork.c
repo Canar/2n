@@ -48,7 +48,8 @@ void p_decode(char*** pl,int plc, int prefixc){
 	char cache_fn[4096+1+6]="cache:"; /* max_path + null + "cache:" */
 	char ss_buf[22]={'0',0,'0',0}; // contains start location
 
-	if(plc==++state.pos) halt(0);
+	if(plc==++state.pos) return;
+	//if(plc==++state.pos) halt(0);
 	if(state.pos<0) state.pos=0;
 	//state.off=0;
 

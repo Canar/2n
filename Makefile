@@ -14,14 +14,14 @@ $(PROG):	Makefile config.h $(CLEANS) $(FF)
 clean:
 	rm -f $(CLEANS) $(PROG)
 
-%.o : %.c
+%.o : %.c %.h
 	$(CC) $(CFLAGS) $< -c
 
 $(FF):	
 	@echo Warning: FFMPEG executable not found. 2n will build but not function.
 
 config.h:	platform/config.linux.h
-	[ -L config.h ] && rm config.h	
+	[ -L config.h ] && rm config.h # remove broken symlink
 	echo Defaulting to Linux config. Symlink a different config for other platforms.
 	ln -s platform/config.linux.h config.h
 
