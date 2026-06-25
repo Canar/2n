@@ -70,6 +70,12 @@ Configuration is performed by editing `config.h` before building.\
 - Handle ffmpeg errors.
 - Replace fork() synchronization with select().
 - Traverse directory when passed as parameter.
+- Service mode:
+    - full paths are emitted instead of friendly partials
+    - controlled with signals, not stdin
+    - stdout is list of files played
+- Handle signals.
+- Handle output failure (for streaming).
 
 ## Release Log
 0.1 - Initial private release.\
@@ -94,5 +100,6 @@ Configuration is performed by editing `config.h` before building.\
 
 0.2.4a1 - Modularized file structure for porting. Ill-tested as an intermediary step, use 0.2.3 for now. `2024-08-20`\
 0.2.4 - 0.2.4 is quite well-tested now. Makefile improvements. `2025-02-18`\
-0.3 - unreleased - poll() implementation. `2024-08-08 -> i am lazy`
+0.3 - unreleased - poll() implementation. `2024-08-08 -> i am lazy`\
+0.2.5 - Bugfix for crash without state file. `2026-06-25`
  

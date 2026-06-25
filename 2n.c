@@ -118,7 +118,7 @@ void print_usage(){
 void load_state(){ //loads state from state_fn or initializes
 	struct stat st;
 	int ret=stat(state_fn,&st);
-	if(0>=ret){
+	if(0<=ret){
 		int fd;
 		CK( fd=open(state_fn,O_RDONLY) );
 		CK( read(fd,&state,sizeof(statest))-sizeof(statest) );
