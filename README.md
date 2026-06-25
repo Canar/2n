@@ -33,7 +33,9 @@ If there are too many files to pass on the command line, you can\
 generate a playlist using `find` as follows:\
 ``find `pwd` -type f -iname '*.flac' -print0 >~/.local/share/2n/playlist``
 
-You can pipe find's output through `shuf -z` to shuffle.
+You can pipe find's output through `shuf -z` to shuffle. Note that\
+`find` should have full paths or 2n will fail if cwd is anywhere but\
+where the `find` command was run.
 
 ### Keyboard Controls
 Keystroke commands during playback:\
