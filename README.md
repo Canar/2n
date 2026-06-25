@@ -30,8 +30,8 @@ Continue playing last created playlist:\
 `$ 2n`
 
 If there are too many files to pass on the command line, you can\
-generate a playlist using `find` as follows:
-`find \`pwd\` -type f -iname '*.flac' -print0 >~/.local/share/2n/playlist`
+generate a playlist using `find` as follows:\
+``find `pwd` -type f -iname '*.flac' -print0 >~/.local/share/2n/playlist``
 
 You can pipe find's output through `shuf -z` to shuffle.
 
